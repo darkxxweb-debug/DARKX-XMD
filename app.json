@@ -1,0 +1,29 @@
+{
+  "name": "DarkX-minBot",
+  "description": "WhatsApp Bot developed by MrX Dev",
+  "repository": "https://github.com/darkx-pro/DarkX-Mini",
+  "logo": "https://images.unsplash.com/photo-1614332287897-cdc485fa562d?q=80&w=1000&auto=format&fit=crop",
+  "keywords": ["bot", "whatsapp", "baileys", "darkx"],
+  "env": {
+    "SESSION_ID": {
+      "description": "(Si lazima tena) Ingiza Session ID pekee ukitaka ku-seed session moja; sasa unganisha namba kupitia web pairing page badala yake",
+      "required": false
+    },
+    "OWNER_NUMBER": {
+      "description": "Namba ya mmiliki wa bot",
+      "value": "255775710774",
+      "required": false
+    },
+    "PREFIX": {
+      "description": "Alama ya kuanzia amri",
+      "value": ".",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}
