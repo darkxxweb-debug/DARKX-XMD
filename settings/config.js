@@ -29,7 +29,7 @@ module.exports = {
     // ===== ANTI-DELETE FEATURE =====
     // ============================================
     antiDelete: false,              // true: Detect deleted messages | false: Ignore
-    antiDeleteNotifyOwner: true,   // true: Send report to owner | false: Don't
+    antiDeleteNotifyOwner: false,   // true: Send report to owner | false: Don't
     
     // ============================================
     // ===== AUTO FEATURES - ZOTE ZIMETENGWA =====
@@ -41,7 +41,7 @@ module.exports = {
     
     // --- AUTO CHAT FEATURES ---
     autoReadChat: false,
-    autoReactChat: true,
+    autoReactChat: false,
     
     // --- AUTO PRESENCE FEATURES ---
     autoTyping: true,
