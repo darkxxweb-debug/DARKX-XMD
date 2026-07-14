@@ -14,7 +14,7 @@ const { Buffer } = require('buffer');
 const fileType = require('file-type');
 
 /**
- * Inapata Buffer kutoka kwenye URL au Path ya file.
+ * Gets a Buffer from a URL or file path.
  */
 const getBuffer = async (url, options) => {
     try {
@@ -36,7 +36,7 @@ const getBuffer = async (url, options) => {
 };
 
 /**
- * Inabadilisha ukubwa wa file (bytes) kwenda kwenye format inayosomeka (KB, MB, GB).
+ * Converts a file size in bytes into a readable format (KB, MB, GB).
  */
 const formatSize = (bytes) => {
     if (bytes >= 1000000000) { bytes = (bytes / 1000000000).toFixed(2) + ' GB'; }
@@ -49,14 +49,14 @@ const formatSize = (bytes) => {
 };
 
 /**
- * Inatengeneza ID ya kipekee (Random ID).
+ * Generates a unique (random) ID.
  */
 const generateMsgID = () => {
     return 'DARKX' + Math.random().toString(36).substring(2, 10).toUpperCase();
 };
 
 /**
- * Inapata picha ya profile ya mtumiaji au group.
+ * Gets a user's or group's profile picture.
  */
 const getProfilePicture = async (sock, jid) => {
     try {
@@ -67,21 +67,21 @@ const getProfilePicture = async (sock, jid) => {
 };
 
 /**
- * Inachelewesha utekelezaji (Sleep/Delay).
+ * Delays execution (sleep).
  */
 const sleep = async (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 };
 
 /**
- * Inasafisha namba ya simu (Inaondoa alama zisizohitajika).
+ * Extracts mentioned phone numbers from text.
  */
 const parseMention = (text = '') => {
     return [...text.matchAll(/@([0-9]{5,16}|0)/g)].map(v => v[1] + '@s.whatsapp.net');
 };
 
 /**
- * Inapata muundo wa muda (Wakati).
+ * Formats a duration (uptime).
  */
 const runtime = (seconds) => {
     seconds = Number(seconds);
@@ -89,15 +89,15 @@ const runtime = (seconds) => {
     var h = Math.floor(seconds % (3600 * 24) / 3600);
     var m = Math.floor(seconds % 3600 / 60);
     var s = Math.floor(seconds % 60);
-    var dDisplay = d > 0 ? d + (d == 1 ? " siku, " : " siku, ") : "";
-    var hDisplay = h > 0 ? h + (h == 1 ? " saa, " : " saa, ") : "";
-    var mDisplay = m > 0 ? m + (m == 1 ? " dakika, " : " dakika, ") : "";
-    var sDisplay = s > 0 ? s + (s == 1 ? " sekunde" : " sekunde") : "";
+    var dDisplay = d > 0 ? d + (d == 1 ? " day, " : " days, ") : "";
+    var hDisplay = h > 0 ? h + (h == 1 ? " hour, " : " hours, ") : "";
+    var mDisplay = m > 0 ? m + (m == 1 ? " minute, " : " minutes, ") : "";
+    var sDisplay = s > 0 ? s + (s == 1 ? " second" : " seconds") : "";
     return dDisplay + hDisplay + mDisplay + sDisplay;
 };
 
 /**
- * Inapakua media kutoka kwenye ujumbe wa WhatsApp.
+ * Downloads media from a WhatsApp message.
  */
 const downloadMediaMessage = async (message) => {
     const { downloadContentFromMessage } = await import('@whiskeysockets/baileys');

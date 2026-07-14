@@ -1,110 +1,104 @@
 /**
- * DarkX AI - Business & Tech Intelligence
- * Powered by MrX Dev | Mwana wa Mzee King Project
+ * DarkX-Ultra AI - Simple keyword-based auto-reply brain used by the
+ * .aion / .aioff auto-reply feature.
  */
 
 const config = require("../settings/config");
 
 const knowledgeBase = [
     {
-        keywords: ['mambo', 'habari', 'niaje', 'hi', 'hello', 'vipi', 'mambo vipi'],
+        keywords: ['mambo', 'habari', 'niaje', 'hi', 'hello', 'vipi', 'hey'],
         reply: `
 *╔════════════════════╗*
 *║      ＤΛＲＫＸ   ΛＩ      ║*
 *╚════════════════════╝*
 
-Greetings! Naitwa *DarkX AI*, intelligence system ya **MrX Dev**. 
+Greetings! I'm *DarkX-Ultra AI*.
 
-Niko hapa kukuongoza kupata suluhisho bora za kidijitali. Iwe unahitaji *WhatsApp Bot* yenye nguvu au *Website* ya kisasa, upo mahali sahihi.
+I'm here to help you find the right digital solution. Whether you need a powerful *WhatsApp Bot* or a modern *Website*, you're in the right place.
 
 📌 *Quick Start:*
-> Type *.list* ➜ Kuona Menu ya Biashara
-> Type *.menu* ➜ Kuona Commands zote
+> Type *.list* ➜ View our service menu
+> Type *.menu* ➜ View all commands
 
-_“Empowering your vision through code.”_`
+_"Empowering your vision through code."_`
     },
     {
-        keywords: ['bot', 'whatsapp bot', 'tengeneza bot', 'kuunda bot', 'script', 'baileys'],
+        keywords: ['bot', 'whatsapp bot', 'make a bot', 'build a bot', 'script', 'baileys'],
         reply: `
 *┏━━━━━━◤ 📦 ◢━━━━━━┓*
 *┃   ＷＨΛＴＳΛＰＰ   ＢＯＴＳ   ┃*
 *┗━━━━━━◣ 📦 ◢━━━━━━┛*
 
-Unahitaji mfumo wa *Kiotomatiki* unaofanya kazi 24/7? Tunatengeneza Bots kwa teknolojia ya **Baileys (Node.js)** zenye sifa zifuatazo:
+Need an automated system running 24/7? We build bots using *Baileys (Node.js)* with:
 
 ✨ *Custom Features*
 🚀 *Ultra-Fast Speed*
 🔒 *High Security*
 
-*Hitch a ride to progress:*
-Andika *.list* sasa hivi uone packages zetu kuanzia 10k tu!
-
-> _Mwana wa Mzee King Project_`
+Type *.list* now to see our packages.`
     },
     {
-        keywords: ['website', 'tovuti', 'web', 'tengeneza website', 'hosting'],
+        keywords: ['website', 'web', 'build a website', 'hosting'],
         reply: `
 *🌐 〔 ＤΞＶΞＬＯＰＭΞＮＴ 〕 🌐*
 
-Tunajenga madaraja ya kidijitali! Website yako ni ofisi yako ya mtandaoni. 
-DarkX inakupa:
- 
-⚡ *Responsive Design* (Simu & PC)
+We build digital bridges! Your website is your online office.
+DarkX-Ultra gives you:
+
+⚡ *Responsive Design* (Mobile & PC)
 🛠️ *Full Backend Support*
 💎 *Premium UI/UX*
 
-Gharama zinaanza *50,000 TZS* pekee. 
-Check full details kwa kuandika *.list*`
+Check full details by typing *.list*`
     },
     {
-        keywords: ['customize', 'badilisha', 'vile nataka', 'special', 'pro'],
+        keywords: ['customize', 'custom', 'special', 'pro'],
         reply: `
 *🛠️ ◤ ＣＵＳＴＯＭＩＺΛＴＩＯＮ ◢ 🛠️*
 
-Sisi hatufanyi kazi za kukariri! Tuambie unachowaza, na sisi tutakiandikia Code.
-• Unataka Bot ya kusimamia vikundi?
-• Unataka Website ya kuuza bidhaa?
-• Unataka Logo ya kijanja?
+We don't do cookie-cutter work! Tell us what you're imagining and we'll build it:
+• A bot to manage your groups?
+• A store website?
+• A clean logo?
 
-*Talk to the Expert:*
-Andika *.owner* uongee na **MrX Dev** moja kwa moja au andika *.list* uone uwezo wetu.`
+*Talk to the team:*
+Type *.owner* to reach out directly, or *.list* to see what we offer.`
     },
     {
-        keywords: ['hacking', 'cybersecurity', 'cyber', 'usalama'],
+        keywords: ['security', 'cybersecurity', 'cyber'],
         reply: `
 *🛡️ ◤ ＣＹＢΞＲ  ＳΞＣＵＲＩＴＹ ◢ 🛡️*
 
-Katika ulimwengu wa giza, ulinzi ni kila kitu. Tunatoa huduma za:
+We offer:
 • Penetration Testing
 • Account Security Audits
 • Vulnerability Fixes
 
-_Warning: We operate under strict professional ethics._
-Detailed pricing? Type *.list* (Namba 4).`
+Detailed pricing? Type *.list*`
     }
 ];
 
 const getBotResponse = (userInput) => {
     const text = userInput.toLowerCase().trim();
-    
+
     for (const entry of knowledgeBase) {
-        const isMatch = entry.keywords.some(keyword => {
+        const isMatch = entry.keywords.some((keyword) => {
             const regex = new RegExp(`\\b${keyword}\\b`, 'i');
             return regex.test(text);
         });
-        
+
         if (isMatch) return entry.reply;
     }
 
-    // Default response kama hajaandika keyword inayoeleweka
     return `
 *⚠️ 〔 ＳＹＳＴΞＭ  ＮＯＴＩＣΞ 〕 ⚠️*
 
-Samahani, sijapata keyword sahihi. Ikiwa unataka kuona huduma zetu za *Bots, Website* na *Hacking*, tafadhali tumia amri hii:
+Sorry, I didn't recognize that. If you'd like to see our *Bots* and *Website* services, use this command:
 
 👉 *${config.prefix}list*
 
-_DarkX Ultra v6.0.0_`;
+_DarkX-Ultra v${config.version}_`;
 };
 
 module.exports = { getBotResponse };

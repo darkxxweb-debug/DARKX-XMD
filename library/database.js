@@ -15,52 +15,52 @@ const dbPath = path.join(__dirname, '../database.json');
 
 // --- DATABASE STRUCTURE ---
 const defaultData = {
-    users: {},      // Data za watumiaji (kama level, xp, ban status)
-    groups: {},     // Data za magroup (kama welcome message, anti-link)
-    settings: {     // Mipangilio ya jumla ya bot
+    users: {},      // User data (like level, xp, ban status)
+    groups: {},     // Group data (like welcome message, anti-link)
+    settings: {     // General bot settings
         self: false,
         autoRead: false,
         public: true,
         online: true
     },
-    others: {}      // Data mchanganyiko
+    others: {}      // Miscellaneous data
 };
 
 /**
- * Inasoma data kutoka kwenye file la JSON.
- * Ikiwa file halipo, inatengeneza jipya na defaultData.
+ * Reads data from the JSON file.
+ * If the file doesn't exist, creates a new one with defaultData.
  */
 const loadDatabase = () => {
     try {
         if (!fs.existsSync(dbPath)) {
             fs.writeFileSync(dbPath, JSON.stringify(defaultData, null, 2));
-            console.log(chalk.green("✅ Database mpya imetengenezwa!"));
+            console.log(chalk.green("✅ New database created!"));
             return defaultData;
         }
         const data = fs.readFileSync(dbPath, 'utf-8');
         return JSON.parse(data);
     } catch (err) {
-        console.error(chalk.red("❌ Error kusoma database:"), err);
+        console.error(chalk.red("❌ Error reading database:"), err);
         return defaultData;
     }
 };
 
 /**
- * Inahifadhi data zote zilizobadilika kwenda kwenye JSON file.
+ * Saves all changed data back to the JSON file.
  */
 const saveDatabase = (data) => {
     try {
         fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
     } catch (err) {
-        console.error(chalk.red("❌ Error kuhifadhi database:"), err);
+        console.error(chalk.red("❌ Error saving database:"), err);
     }
 };
 
 /**
- * Inahakikisha mtumiaji au group lipo kwenye DB, asipokuwepo anahifadhiwa.
+ * Ensures a user or group exists in the DB, creating it if missing.
  */
 const synchronizeData = (m, sock) => {
-    const db = global.db; // Tunatumia global ili ipatikane kote
+    const db = global.db; // Using global so it's accessible everywhere
     if (!db) return;
 
     const isGroup = m.chat.endsWith('@g.us');
@@ -75,7 +75,7 @@ const synchronizeData = (m, sock) => {
             if (!('banned' in user)) user.banned = false;
             if (!('premium' in user)) user.premium = false;
             if (!('warn' in user)) user.warn = 0;
-            if (!('limit' in user)) user.limit = 20; // Daily limit ya commands
+            if (!('limit' in user)) user.limit = 20; // Daily command limit
         } else {
             db.users[sender] = {
                 name: m.pushName || "User",
@@ -114,7 +114,7 @@ const synchronizeData = (m, sock) => {
 // Initialize Database globally
 global.db = loadDatabase();
 
-// Auto-save kila baada ya sekunde 30 kuzuia kupoteza data bot ikizima ghafla
+// Auto-save every 30 seconds to avoid losing data if the bot shuts down suddenly
 setInterval(() => {
     if (global.db) saveDatabase(global.db);
 }, 30000);
