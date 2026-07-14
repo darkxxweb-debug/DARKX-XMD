@@ -50,13 +50,22 @@ module.exports = {
 
             const data = response.data;
             const title = data.title || videoTitle || 'YouTube Video';
-            const thumbnail = data.thumbnail || videoThumbnail;
             const videoDownloadUrl = data.videos["360"]; // Tunachukua quality ya 360p
 
-            // Tuma video
+            if (!videoDownloadUrl) {
+                await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
+                return await sock.sendMessage(from, { text: "⚠️ Njia ya kupakua video haijapatikana kwenye hii quality!" });
+            }
+
+            // KUPAKUA VIDEO KUWA BUFFER ILI KUEPUKA TATIZO LA FORMAT
+            const videoResponse = await axios.get(videoDownloadUrl, { responseType: 'arraybuffer' });
+            const videoBuffer = Buffer.from(videoResponse.data, 'binary');
+
+            // Tuma video ikiwa imara kama Buffer
             await sock.sendMessage(from, {
-                video: { url: videoDownloadUrl },
+                video: videoBuffer,
                 mimetype: 'video/mp4',
+                fileName: `${title}.mp4`,
                 caption: `🎬 *${title}*\n\n✅ Download imekamilika!\n🎥 Quality: 360p\n\n> 👑 *${config.botName}* Downloader`
             }, { quoted: m });
 
@@ -66,7 +75,7 @@ module.exports = {
         } catch (error) {
             console.error('Error in video command:', error);
             await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
-            await sock.sendMessage(from, { text: "❌ Imefeli kudownload video." });
+            await sock.sendMessage(from, { text: "❌ Imefeli kudownload au kutuma video." });
         }
     }
 };
