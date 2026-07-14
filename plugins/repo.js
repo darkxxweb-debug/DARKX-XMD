@@ -11,7 +11,8 @@ module.exports = {
             const imagePath = path.join(__dirname, "../media/repo.jpg");
             const audioPath = path.join(__dirname, "../media/repo.mp3");
 
-            const repoLink = "https://github.com/darkx-pro/DarkX-Mini.git";
+            // LINK MPYA YA HEROKU INAYOBAKIZA REPO/SCRIPT YA BOT
+            const repoLink = "https://darkx-xmd-ba2ddf4dd246.herokuapp.com/";
             const ownerNumber = "255775710774";
             const ownerName = "MrX Dev";
             const botName = "DarkX Ultra 👑";
@@ -54,7 +55,7 @@ module.exports = {
 *╰━━━━━━━━━━━━━━━━━━⬣*
 
 *╭━━━〔 📂 REPOSITORY 📂 〕━━━⬣*
-*┃ 🔗 GitHub Script:*
+*┃ 🔗 Web Script:*
 ${repoLink}
 *╰━━━━━━━━━━━━━━━━━━⬣*
 
