@@ -1,22 +1,17 @@
 {
-  "name": "DarkX-minBot",
-  "description": "WhatsApp Bot developed by MrX Dev",
-  "repository": "https://github.com/darkx-pro/DarkX-Mini",
+  "name": "DarkX-Ultra",
+  "description": "Multi-device WhatsApp Bot — DarkX-Ultra",
+  "repository": "https://github.com/darkx-pro/DarkX-Ultra",
   "logo": "https://images.unsplash.com/photo-1614332287897-cdc485fa562d?q=80&w=1000&auto=format&fit=crop",
-  "keywords": ["bot", "whatsapp", "baileys", "darkx"],
+  "keywords": ["bot", "whatsapp", "baileys", "darkx-ultra"],
   "env": {
     "SESSION_ID": {
-      "description": "(Si lazima tena) Ingiza Session ID pekee ukitaka ku-seed session moja; sasa unganisha namba kupitia web pairing page badala yake",
+      "description": "(No longer required) Only used to seed a single legacy session; link numbers through the web dashboard instead.",
       "required": false
     },
-    "OWNER_NUMBER": {
-      "description": "Namba ya mmiliki wa bot",
-      "value": "255775710774",
-      "required": false
-    },
-    "PREFIX": {
-      "description": "Alama ya kuanzia amri",
-      "value": ".",
+    "PORT": {
+      "description": "Port the web dashboard listens on",
+      "value": "3000",
       "required": false
     }
   },

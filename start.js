@@ -15,9 +15,10 @@ const chalk = chalkImport.default || chalkImport;
 
 const cors = require('cors');
 const config = require('./settings/config');
-const { resumeExistingSessions } = require('./index');
+const { resumeExistingSessions, startWatchdog } = require('./index');
 const registerSocketHandlers = require('./Resources/socket/socket');
 const apiRoutes = require('./Resources/web/routes');
+const adminRoutes = require('./Resources/web/adminRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -30,6 +31,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'Resources', 'web')));
 app.use('/api', apiRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'Resources', 'web', 'index.html'));
@@ -50,7 +52,16 @@ server.listen(PORT, () => {
 
     setTimeout(() => {
         resumeExistingSessions(io);
+        startWatchdog(io);
     }, 2000);
+
+    // Some free-tier hosts put the whole process to sleep after a period of
+    // no inbound HTTP traffic, which would also kill every WhatsApp session.
+    // A small self-ping every few minutes keeps the process (and therefore
+    // every linked session) alive. Harmless on hosts that don't sleep.
+    setInterval(() => {
+        http.get(`http://127.0.0.1:${PORT}/health`, (res) => res.resume()).on('error', () => {});
+    }, 4 * 60_000);
 });
 
 process.on('uncaughtException', (err) => {

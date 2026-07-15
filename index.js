@@ -22,6 +22,7 @@ const config = require('./settings/config');
 const { smsg } = require('./library/serialize');
 const { getBotResponse } = require('./library/brain');
 const { getSettings } = require('./library/settingsStore');
+const { isBanned } = require('./library/adminStore');
 
 process.on('uncaughtException', (err) => {
     console.error(chalk.red('CRITICAL ERROR (Uncaught Exception):'), err);
@@ -66,6 +67,7 @@ let autoAi = config.autoAi || false;
 
 const SESSIONS_ROOT = path.join(__dirname, 'sessions');
 const activeSockets = {};
+const reconnectAttempts = {}; // sessionId -> consecutive failed-reconnect count
 
 function decodeJidFactory() {
     return (jid) => {
@@ -118,6 +120,18 @@ async function startBot(number, io, onPairingCode) {
         markOnlineOnConnect: true,
         generateHighQualityLinkPreview: true,
         getMessage: async () => ({ conversation: 'DarkX-Ultra-Internal-Cache' }),
+        // --- Long-lived-session tuning ---
+        // Baileys pings WhatsApp's servers to keep the socket alive; a short
+        // interval + generous timeouts stop the session from silently dying
+        // on flaky connections, which is what was cutting sessions off after
+        // just a few hours.
+        keepAliveIntervalMs: 20_000,
+        connectTimeoutMs: 60_000,
+        defaultQueryTimeoutMs: 60_000,
+        qrTimeout: 60_000,
+        emitOwnEvents: true,
+        retryRequestDelayMs: 2_000,
+        maxMsgRetryCount: 5,
     });
 
     activeSockets[sessionId] = sock;
@@ -153,6 +167,7 @@ async function startBot(number, io, onPairingCode) {
             // owner number by default (this is what owner-only commands
             // check against for this session).
             const sessionSettings = getSettings(sessionId);
+            reconnectAttempts[sessionId] = 0; // connection is healthy again, reset backoff
             console.log(chalk.green(`✅ ${sessionSettings.botName} (${sessionId}) connected!`));
             if (io) io.emit('connected', { number: sessionId });
         }
@@ -161,14 +176,37 @@ async function startBot(number, io, onPairingCode) {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-            console.log(chalk.red(`❌ Session ${sessionId} closed. Reconnecting: ${shouldReconnect}`));
+            console.log(chalk.red(`❌ Session ${sessionId} closed (code: ${statusCode || 'unknown'}). Reconnecting: ${shouldReconnect}`));
             if (io) io.emit('disconnected', { number: sessionId, willReconnect: shouldReconnect });
 
+            // Stop this dead socket from doing anything else / leaking listeners
+            // before we spin up a fresh one for the same number.
+            try { sock.ev.removeAllListeners(); } catch (_) {}
+            delete activeSockets[sessionId];
+
             if (shouldReconnect) {
-                setTimeout(() => startBot(sessionId, io), 5000);
+                // Capped exponential backoff: 5s, 10s, 20s ... up to 5 minutes.
+                // We keep retrying indefinitely (this is what lets a session
+                // stay linked for days instead of giving up after a few
+                // failed attempts) — it only stops if the user logs out from
+                // their phone (DisconnectReason.loggedOut) or the session is
+                // deleted from the admin panel.
+                const attempt = (reconnectAttempts[sessionId] || 0) + 1;
+                reconnectAttempts[sessionId] = attempt;
+                const backoffMs = Math.min(5_000 * Math.pow(2, attempt - 1), 5 * 60_000);
+
+                setTimeout(() => {
+                    // Don't reconnect a session that was deliberately deleted
+                    // in the meantime (admin panel) or already reconnected.
+                    if (fs.existsSync(sessionPath) && !activeSockets[sessionId]) {
+                        startBot(sessionId, io).catch((err) =>
+                            console.log(chalk.red(`❌ Reconnect failed for ${sessionId}: ${err.message}`))
+                        );
+                    }
+                }, backoffMs);
             } else {
                 fsExtra.remove(sessionPath).catch(() => {});
-                delete activeSockets[sessionId];
+                delete reconnectAttempts[sessionId];
                 console.log(chalk.red(`👋 Session ${sessionId} logged out.`));
             }
         }
@@ -188,6 +226,10 @@ async function startBot(number, io, onPairingCode) {
 
             const m = smsg(sock, mek);
             const body = m.body || '';
+
+            // --- Global ban check (admin panel) ---
+            // Banned numbers can't use the bot at all, on any connected session.
+            if (!m.key.fromMe && isBanned(m.sender)) return;
 
             const settings = getSettings(sessionId);
             const isOwner = m.key.fromMe || settings.ownerNumber === m.sender.split('@')[0];
@@ -280,4 +322,82 @@ async function resumeExistingSessions(io) {
     }
 }
 
-module.exports = { startBot, resumeExistingSessions, activeSockets };
+/**
+ * Watchdog: every 5 minutes, checks that every socket we think is "active"
+ * still has a genuinely open underlying websocket. Occasionally a socket
+ * can hang (the 'close' event never fires) which would otherwise leave a
+ * session silently dead until something happens to notice. This is part of
+ * what keeps sessions alive for days instead of a few hours.
+ */
+function startWatchdog(io) {
+    setInterval(() => {
+        for (const sessionId of Object.keys(activeSockets)) {
+            const sock = activeSockets[sessionId];
+            const readyState = sock?.ws?.socket?.readyState ?? sock?.ws?.readyState;
+            // 1 === OPEN. Anything else (and defined) means the socket is
+            // stuck in a bad state that never triggered a proper 'close'.
+            if (readyState !== undefined && readyState !== 1) {
+                console.log(chalk.yellow(`🩺 Watchdog: session ${sessionId} looks stuck (readyState ${readyState}), restarting...`));
+                try { sock.ev.removeAllListeners(); } catch (_) {}
+                try { sock.ws?.close?.(); } catch (_) {}
+                delete activeSockets[sessionId];
+                startBot(sessionId, io).catch((err) =>
+                    console.log(chalk.red(`❌ Watchdog restart failed for ${sessionId}: ${err.message}`))
+                );
+            }
+        }
+    }, 5 * 60_000);
+}
+
+/**
+ * Fully removes a session: logs it out of WhatsApp (best-effort), tears
+ * down its socket, and deletes its saved credentials from disk. Used by
+ * the admin panel's "delete session" action.
+ */
+async function deleteSession(number) {
+    const sessionId = String(number).replace(/[^0-9]/g, '');
+    const sessionPath = path.join(SESSIONS_ROOT, sessionId);
+    const sock = activeSockets[sessionId];
+
+    if (sock) {
+        try { await sock.logout(); } catch (_) {}
+        try { sock.ev.removeAllListeners(); } catch (_) {}
+        delete activeSockets[sessionId];
+    }
+    delete reconnectAttempts[sessionId];
+
+    await fsExtra.remove(sessionPath).catch(() => {});
+    return true;
+}
+
+/**
+ * Lists every known session (currently connected or previously saved on
+ * disk) for the admin panel, with its connection status and owner info.
+ */
+function listAllSessions() {
+    fsExtra.ensureDirSync(SESSIONS_ROOT);
+    const onDisk = fs
+        .readdirSync(SESSIONS_ROOT)
+        .filter((name) => fs.statSync(path.join(SESSIONS_ROOT, name)).isDirectory());
+
+    const allIds = new Set([...onDisk, ...Object.keys(activeSockets)]);
+
+    return [...allIds].map((sessionId) => {
+        const settings = getSettings(sessionId);
+        return {
+            number: sessionId,
+            connected: !!activeSockets[sessionId],
+            botName: settings.botName,
+            ownerNumber: settings.ownerNumber,
+        };
+    });
+}
+
+module.exports = {
+    startBot,
+    resumeExistingSessions,
+    activeSockets,
+    startWatchdog,
+    deleteSession,
+    listAllSessions,
+};
