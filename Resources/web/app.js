@@ -208,3 +208,186 @@ logoutBtn.addEventListener("click", () => {
   settingsStatus.textContent = "";
   showStep("login");
 });
+
+// ---------- Admin dashboard ----------
+const adminLink = document.getElementById("admin-link");
+const adminModal = document.getElementById("admin-modal");
+const adminDashboard = document.getElementById("admin-dashboard");
+const adminPasswordInput = document.getElementById("admin-password");
+const adminLoginBtn = document.getElementById("admin-login-btn");
+const adminCancelBtn = document.getElementById("admin-cancel-btn");
+const adminLoginError = document.getElementById("admin-login-error");
+const adminCloseBtn = document.getElementById("admin-close-btn");
+
+const adminSessionsList = document.getElementById("admin-sessions-list");
+const banNumberInput = document.getElementById("ban-number-input");
+const banBtn = document.getElementById("ban-btn");
+const adminBannedList = document.getElementById("admin-banned-list");
+
+const notifyImageInput = document.getElementById("notify-image");
+const notifyMessageInput = document.getElementById("notify-message");
+const notifySendBtn = document.getElementById("notify-send-btn");
+const adminNotifyStatus = document.getElementById("admin-notify-status");
+
+let adminToken = null;
+
+adminLink.addEventListener("click", (e) => {
+  e.preventDefault();
+  adminPasswordInput.value = "";
+  adminLoginError.textContent = "";
+  adminModal.classList.add("show");
+});
+
+adminCancelBtn.addEventListener("click", () => adminModal.classList.remove("show"));
+
+adminLoginBtn.addEventListener("click", async () => {
+  const password = adminPasswordInput.value;
+  if (!password) return;
+
+  adminLoginBtn.disabled = true;
+  try {
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Login failed.");
+
+    adminToken = data.token;
+    adminModal.classList.remove("show");
+    adminDashboard.classList.add("show");
+    await Promise.all([loadAdminSessions(), loadAdminBanned()]);
+  } catch (err) {
+    adminLoginError.textContent = err.message;
+  } finally {
+    adminLoginBtn.disabled = false;
+  }
+});
+
+adminCloseBtn.addEventListener("click", () => adminDashboard.classList.remove("show"));
+
+async function adminFetch(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`,
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Request failed.");
+  return data;
+}
+
+async function loadAdminSessions() {
+  adminSessionsList.innerHTML = "Loading...";
+  try {
+    const { sessions } = await adminFetch("/api/admin/sessions");
+    if (!sessions.length) {
+      adminSessionsList.innerHTML = `<div class="admin-row"><span>No sessions yet.</span></div>`;
+      return;
+    }
+    adminSessionsList.innerHTML = sessions
+      .map(
+        (s) => `
+        <div class="admin-row">
+          <span><span class="dot ${s.connected ? "online" : "offline"}"></span>${s.number} — ${s.botName || "DarkX-Ultra"} ${s.connected ? "(Online)" : "(Offline)"}</span>
+          <button class="btn-danger" data-delete="${s.number}">Delete</button>
+        </div>`
+      )
+      .join("");
+
+    adminSessionsList.querySelectorAll("[data-delete]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm(`Delete session ${btn.dataset.delete}? This cannot be undone.`)) return;
+        btn.disabled = true;
+        try {
+          await adminFetch(`/api/admin/sessions/${btn.dataset.delete}`, { method: "DELETE" });
+          await loadAdminSessions();
+        } catch (err) {
+          alert(err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+  } catch (err) {
+    adminSessionsList.innerHTML = `<div class="admin-row"><span>⚠️ ${err.message}</span></div>`;
+  }
+}
+
+async function loadAdminBanned() {
+  adminBannedList.innerHTML = "Loading...";
+  try {
+    const { banned } = await adminFetch("/api/admin/banned");
+    if (!banned.length) {
+      adminBannedList.innerHTML = `<div class="admin-row"><span>No banned numbers.</span></div>`;
+      return;
+    }
+    adminBannedList.innerHTML = banned
+      .map(
+        (num) => `
+        <div class="admin-row">
+          <span>🚫 ${num}</span>
+          <button class="btn-secondary" data-unban="${num}">Unban</button>
+        </div>`
+      )
+      .join("");
+
+    adminBannedList.querySelectorAll("[data-unban]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          await adminFetch("/api/admin/unban", { method: "POST", body: JSON.stringify({ number: btn.dataset.unban }) });
+          await loadAdminBanned();
+        } catch (err) {
+          alert(err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+  } catch (err) {
+    adminBannedList.innerHTML = `<div class="admin-row"><span>⚠️ ${err.message}</span></div>`;
+  }
+}
+
+banBtn.addEventListener("click", async () => {
+  const number = banNumberInput.value.trim();
+  if (!number) return;
+  banBtn.disabled = true;
+  try {
+    await adminFetch("/api/admin/ban", { method: "POST", body: JSON.stringify({ number }) });
+    banNumberInput.value = "";
+    await loadAdminBanned();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    banBtn.disabled = false;
+  }
+});
+
+notifySendBtn.addEventListener("click", async () => {
+  const message = notifyMessageInput.value.trim();
+  const imageUrl = notifyImageInput.value.trim();
+  if (!message) {
+    adminNotifyStatus.textContent = "Please write a message first.";
+    return;
+  }
+
+  notifySendBtn.disabled = true;
+  adminNotifyStatus.textContent = "Sending...";
+  try {
+    const data = await adminFetch("/api/admin/notify", {
+      method: "POST",
+      body: JSON.stringify({ message, imageUrl }),
+    });
+    adminNotifyStatus.textContent = `✅ Sent to ${data.sent}/${data.total} connected owner(s).`;
+    notifyMessageInput.value = "";
+    notifyImageInput.value = "";
+  } catch (err) {
+    adminNotifyStatus.textContent = `⚠️ ${err.message}`;
+  } finally {
+    notifySendBtn.disabled = false;
+  }
+});
