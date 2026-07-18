@@ -4,29 +4,56 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>DarkX-Ultra | Dashboard</title>
+<link rel="icon" href="https://files.catbox.moe/pc5uec.png" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  html, body { height: 100%; }
   body {
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #0f0f1a 0%, #1b1b2f 50%, #2c0e37 100%);
-    padding: 20px;
+    background: radial-gradient(circle at 20% 0%, #2c0e37 0%, #0f0f1a 45%, #0a0a12 100%);
+    color: #eee;
   }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 32px; background: rgba(15, 15, 26, 0.85); backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(158, 92, 255, 0.2); position: sticky; top: 0; z-index: 50;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 0 18px rgba(158,92,255,0.5); }
+  .brand h1 { font-size: 20px; color: #fff; letter-spacing: 0.5px; }
+  .brand span { display: block; font-size: 11px; color: #9a92b3; font-weight: 400; }
+  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+  .pill-btn {
+    display: flex; align-items: center; gap: 6px; background: rgba(123, 47, 247, 0.15);
+    border: 1px solid rgba(158, 92, 255, 0.4); color: #d9c9ff; padding: 9px 16px;
+    border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
+    transition: 0.2s;
+  }
+  .pill-btn:hover { background: rgba(123, 47, 247, 0.3); transform: translateY(-1px); }
+
+  /* ---------- Hero ---------- */
+  .hero { text-align: center; padding: 44px 20px 8px; }
+  .hero h2 { font-size: 30px; background: linear-gradient(135deg, #fff, #c9a9ff); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 8px; }
+  .hero p { color: #9a92b3; font-size: 14px; max-width: 560px; margin: 0 auto; }
+
+  /* ---------- Wide layout ---------- */
+  .layout {
+    max-width: 1180px; margin: 0 auto; padding: 32px 24px 60px;
+    display: grid; grid-template-columns: 1fr; justify-items: center; gap: 28px;
+  }
+
   .card {
     background: rgba(20, 20, 32, 0.95);
     border-radius: 24px;
-    padding: 36px 32px;
-    max-width: 460px;
+    padding: 36px 40px;
+    max-width: 520px;
     width: 100%;
     text-align: center;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(158, 92, 255, 0.25);
   }
-  .logo { font-size: 44px; }
-  h1 { color: #b388ff; margin: 10px 0 4px; font-size: 24px; letter-spacing: 1px; }
-  p.subtitle { color: #9a92b3; margin-bottom: 20px; font-size: 13px; }
 
   .tabs { display: flex; gap: 8px; margin-bottom: 22px; background: #1a1a2e; border-radius: 14px; padding: 4px; }
   .tab-btn {
@@ -38,13 +65,13 @@
   .panel { display: none; text-align: left; }
   .panel.active { display: block; }
 
-  input, select {
+  input, select, textarea {
     width: 100%; padding: 13px 15px; border-radius: 14px; border: 2px solid #4a3b66;
     background: #1a1a2e; color: #eee; font-size: 15px; outline: none; margin-bottom: 12px;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s; font-family: inherit;
   }
-  input::placeholder { color: #6f6789; }
-  input:focus, select:focus { border-color: #9e5cff; }
+  input::placeholder, textarea::placeholder { color: #6f6789; }
+  input:focus, select:focus, textarea:focus { border-color: #9e5cff; }
 
   label { display: block; color: #b9aee0; font-size: 12px; margin-bottom: 6px; margin-top: 4px; }
 
@@ -103,7 +130,7 @@
     background: #16162a; border: 1px solid rgba(158, 92, 255, 0.3); border-radius: 20px;
     padding: 28px; max-width: 380px; width: 100%; text-align: left;
   }
-  .modal-box.wide { max-width: 520px; max-height: 85vh; overflow-y: auto; }
+  .modal-box.wide { max-width: 560px; max-height: 85vh; overflow-y: auto; }
   .modal-box h2 { color: #b388ff; font-size: 18px; margin-bottom: 14px; }
   .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
   .modal-error { color: #ff6b6b; font-size: 12px; min-height: 16px; margin-bottom: 8px; }
@@ -127,112 +154,188 @@
   .inline-form { display: flex; gap: 8px; }
   .inline-form input { flex: 1; }
   button.action.small { width: auto; padding: 10px 16px; margin-top: 0; }
+
+  /* ---------- Bug report sidebar (public) ---------- */
+  .bug-sidebar {
+    position: fixed; top: 0; right: -420px; width: 400px; max-width: 92vw; height: 100vh;
+    background: #14141f; border-left: 1px solid rgba(158, 92, 255, 0.3);
+    box-shadow: -20px 0 50px rgba(0,0,0,0.5); z-index: 900; transition: right 0.3s ease;
+    display: flex; flex-direction: column;
+  }
+  .bug-sidebar.open { right: 0; }
+  .bug-sidebar-header {
+    padding: 20px 22px; border-bottom: 1px solid #2a2440; display: flex;
+    align-items: center; justify-content: space-between;
+  }
+  .bug-sidebar-header h2 { color: #b388ff; font-size: 17px; }
+  .bug-sidebar-body { padding: 18px 22px; overflow-y: auto; flex: 1; }
+  .bug-form { margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px dashed #2a2440; }
+  .bug-form textarea { min-height: 80px; resize: vertical; }
+  .bug-list-title { font-size: 12px; color: #8f87a8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 700; }
+  .bug-item {
+    background: #1a1a2e; border: 1px solid #2a2440; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 10px;
+  }
+  .bug-item .bug-name { color: #d9c9ff; font-weight: 700; font-size: 13px; }
+  .bug-item .bug-time { color: #6f6789; font-size: 11px; float: right; }
+  .bug-item .bug-msg { color: #cfc7e0; font-size: 13px; margin-top: 6px; line-height: 1.4; white-space: pre-wrap; }
+  .bug-empty { color: #6f6789; font-size: 13px; text-align: center; padding: 30px 0; }
+  .sidebar-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(5,5,12,0.6); z-index: 850;
+  }
+  .sidebar-overlay.show { display: block; }
+
+  @media (max-width: 640px) {
+    .topbar { padding: 12px 16px; }
+    .brand h1 { font-size: 16px; }
+    .card { padding: 26px 20px; }
+    .hero h2 { font-size: 22px; }
+  }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">⚡</div>
-    <h1>DarkX-Ultra</h1>
-    <p class="subtitle">Link a number, or log in to manage its settings</p>
 
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="pair">🔗 Link Device</button>
-      <button class="tab-btn" data-tab="login">⚙️ Login / Settings</button>
-    </div>
-
-    <!-- PANEL 1: Link a new device via pairing code -->
-    <div class="panel active" id="panel-pair">
-      <label for="phone">WhatsApp number (with country code)</label>
-      <input type="text" id="phone" placeholder="e.g. 2557XXXXXXXX" />
-      <button class="action" id="pair-btn">Get Pairing Code</button>
-
-      <div id="status"></div>
-
-      <div id="code-box">
-        <div class="label">✨ Your Pairing Code ✨</div>
-        <div id="pairing-code">------</div>
-        <div class="label" style="margin-top:10px;">Open WhatsApp → Linked Devices → Link with phone number, then enter this code.</div>
+  <div class="topbar">
+    <div class="brand">
+      <img src="https://files.catbox.moe/pc5uec.png" alt="DarkX-Ultra logo" />
+      <div>
+        <h1>DarkX-Ultra</h1>
+        <span>Multi-Device WhatsApp Bot Dashboard</span>
       </div>
     </div>
+    <div class="topbar-actions">
+      <button class="pill-btn" id="report-bug-btn">🐞 Report Bug</button>
+      <a href="#" class="pill-btn" id="admin-link">🔐 Admin</a>
+    </div>
+  </div>
 
-    <!-- PANEL 2: Login with an already-linked number, then edit its settings -->
-    <div class="panel" id="panel-login">
-      <div id="login-step">
-        <label for="login-phone">WhatsApp number already linked to the bot</label>
-        <input type="text" id="login-phone" placeholder="e.g. 2557XXXXXXXX" />
-        <button class="action" id="request-code-btn">Send Verification Code</button>
-        <div id="login-status"></div>
+  <div class="hero">
+    <h2>Link, Manage & Customize Your Bot</h2>
+    <p>Pair a WhatsApp number in seconds, then log in anytime to personalize its name, owner, reactions, and protections.</p>
+  </div>
+
+  <div class="layout">
+    <div class="card">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="pair">🔗 Link Device</button>
+        <button class="tab-btn" data-tab="login">⚙️ Login / Settings</button>
       </div>
 
-      <div id="verify-step" style="display:none;">
-        <label for="verify-code">Enter the 6-digit code sent to your WhatsApp</label>
-        <input type="text" id="verify-code" placeholder="000000" maxlength="6" />
-        <button class="action" id="verify-btn">Verify & Continue</button>
-        <button class="link-btn" id="back-to-login">← Use a different number</button>
+      <!-- PANEL 1: Link a new device via pairing code -->
+      <div class="panel active" id="panel-pair">
+        <label for="phone">WhatsApp number (with country code)</label>
+        <input type="text" id="phone" placeholder="e.g. 2557XXXXXXXX" />
+        <button class="action" id="pair-btn">Get Pairing Code</button>
+
+        <div id="status"></div>
+
+        <div id="code-box">
+          <div class="label">✨ Your Pairing Code ✨</div>
+          <div id="pairing-code">------</div>
+          <div class="label" style="margin-top:10px;">Open WhatsApp → Linked Devices → Link with phone number, then enter this code.</div>
+        </div>
       </div>
 
-      <div id="settings-step" style="display:none;">
-        <div class="section-title">Bot Identity</div>
-        <label for="s-botName">Bot Name</label>
-        <input type="text" id="s-botName" />
-        <label for="s-ownerName">Owner Name</label>
-        <input type="text" id="s-ownerName" />
-        <label for="s-ownerNumber">Owner Number (used for owner-only commands)</label>
-        <input type="text" id="s-ownerNumber" />
-        <label for="s-prefix">Command Prefix</label>
-        <input type="text" id="s-prefix" maxlength="2" />
-
-        <div class="section-title">Status Reactions</div>
-        <label for="s-statusEmojis">Status Reaction Emojis (comma separated)</label>
-        <input type="text" id="s-statusEmojis" placeholder="🔥, 💎, 💜, ❤️" />
-
-        <div class="section-title">Chat Reactions</div>
-        <label for="s-chatEmojis">Auto Chat Reaction Emojis (comma separated)</label>
-        <input type="text" id="s-chatEmojis" placeholder="😆, 😱, 😂" />
-
-        <div class="section-title">Protection (default OFF)</div>
-        <div class="toggle-row">
-          <span>Anti-Link — remove links posted by non-admins</span>
-          <label class="switch"><input type="checkbox" id="s-antilink" /><span class="slider"></span></label>
-        </div>
-        <div class="toggle-row">
-          <span>Anti-Delete — report deleted messages</span>
-          <label class="switch"><input type="checkbox" id="s-antidelete" /><span class="slider"></span></label>
+      <!-- PANEL 2: Login with an already-linked number, then edit its settings -->
+      <div class="panel" id="panel-login">
+        <div id="login-step">
+          <label for="login-phone">WhatsApp number already linked to the bot</label>
+          <input type="text" id="login-phone" placeholder="e.g. 2557XXXXXXXX" />
+          <button class="action" id="request-code-btn">Send Verification Code</button>
+          <div id="login-status"></div>
         </div>
 
-        <div class="section-title">Automation</div>
-        <div class="toggle-row">
-          <span>Auto View Status</span>
-          <label class="switch"><input type="checkbox" id="s-autoViewStatus" /><span class="slider"></span></label>
-        </div>
-        <div class="toggle-row">
-          <span>Auto React to Status</span>
-          <label class="switch"><input type="checkbox" id="s-autoReactStatus" /><span class="slider"></span></label>
-        </div>
-        <div class="toggle-row">
-          <span>Auto Read Chats</span>
-          <label class="switch"><input type="checkbox" id="s-autoReadChat" /><span class="slider"></span></label>
-        </div>
-        <div class="toggle-row">
-          <span>Auto React to Chats</span>
-          <label class="switch"><input type="checkbox" id="s-autoReactChat" /><span class="slider"></span></label>
-        </div>
-        <div class="toggle-row">
-          <span>Auto Typing Indicator</span>
-          <label class="switch"><input type="checkbox" id="s-autoTyping" /><span class="slider"></span></label>
-        </div>
-        <div class="toggle-row">
-          <span>Auto Recording Indicator</span>
-          <label class="switch"><input type="checkbox" id="s-autoRecording" /><span class="slider"></span></label>
+        <div id="verify-step" style="display:none;">
+          <label for="verify-code">Enter the 6-digit code sent to your WhatsApp</label>
+          <input type="text" id="verify-code" placeholder="000000" maxlength="6" />
+          <button class="action" id="verify-btn">Verify & Continue</button>
+          <button class="link-btn" id="back-to-login">← Use a different number</button>
         </div>
 
-        <button class="action" id="save-settings-btn">Save Settings</button>
-        <button class="link-btn" id="logout-btn">Log out</button>
-        <div id="settings-status"></div>
+        <div id="settings-step" style="display:none;">
+          <div class="section-title">Bot Identity</div>
+          <label for="s-botName">Bot Name</label>
+          <input type="text" id="s-botName" />
+          <label for="s-ownerName">Owner Name</label>
+          <input type="text" id="s-ownerName" />
+          <label for="s-ownerNumber">Owner Number (used for owner-only commands)</label>
+          <input type="text" id="s-ownerNumber" />
+          <label for="s-prefix">Command Prefix</label>
+          <input type="text" id="s-prefix" maxlength="2" />
+
+          <div class="section-title">Status Reactions</div>
+          <label for="s-statusEmojis">Status Reaction Emojis (comma separated)</label>
+          <input type="text" id="s-statusEmojis" placeholder="🔥, 💎, 💜, ❤️" />
+
+          <div class="section-title">Chat Reactions</div>
+          <label for="s-chatEmojis">Auto Chat Reaction Emojis (comma separated)</label>
+          <input type="text" id="s-chatEmojis" placeholder="😆, 😱, 😂" />
+
+          <div class="section-title">Protection (default OFF)</div>
+          <div class="toggle-row">
+            <span>Anti-Link — remove links posted by non-admins</span>
+            <label class="switch"><input type="checkbox" id="s-antilink" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Anti-Delete — report deleted messages</span>
+            <label class="switch"><input type="checkbox" id="s-antidelete" /><span class="slider"></span></label>
+          </div>
+
+          <div class="section-title">Automation</div>
+          <div class="toggle-row">
+            <span>Auto View Status</span>
+            <label class="switch"><input type="checkbox" id="s-autoViewStatus" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Auto React to Status</span>
+            <label class="switch"><input type="checkbox" id="s-autoReactStatus" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Auto Read Chats</span>
+            <label class="switch"><input type="checkbox" id="s-autoReadChat" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Auto React to Chats</span>
+            <label class="switch"><input type="checkbox" id="s-autoReactChat" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Auto Typing Indicator</span>
+            <label class="switch"><input type="checkbox" id="s-autoTyping" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Auto Recording Indicator</span>
+            <label class="switch"><input type="checkbox" id="s-autoRecording" /><span class="slider"></span></label>
+          </div>
+
+          <button class="action" id="save-settings-btn">Save Settings</button>
+          <button class="link-btn" id="logout-btn">Log out</button>
+          <div id="settings-status"></div>
+        </div>
       </div>
     </div>
 
-    <footer>© 2026 DarkX-Ultra — Watermark: DarkX-Ultra<br/><a href="#" id="admin-link" class="admin-link">Admin</a></footer>
+    <footer>© 2026 DarkX-Ultra — Watermark: DarkX-Ultra</footer>
+  </div>
+
+  <!-- Public bug-report sidebar -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="bug-sidebar" id="bug-sidebar">
+    <div class="bug-sidebar-header">
+      <h2>🐞 Bug Reports</h2>
+      <button class="link-btn" id="bug-close-btn" style="width:auto;margin:0;">Close</button>
+    </div>
+    <div class="bug-sidebar-body">
+      <div class="bug-form">
+        <label for="bug-name">Your name (optional)</label>
+        <input type="text" id="bug-name" placeholder="Anonymous" maxlength="40" />
+        <label for="bug-message">Describe the bug</label>
+        <textarea id="bug-message" placeholder="What happened? Which command? Any error shown?" maxlength="500"></textarea>
+        <button class="action" id="bug-submit-btn">Submit Report</button>
+        <div id="bug-form-status" style="font-size:12px;color:#b9aee0;margin-top:8px;min-height:16px;"></div>
+      </div>
+      <div class="bug-list-title">Public Reports (visible to everyone)</div>
+      <div id="bug-list"></div>
+    </div>
   </div>
 
   <!-- Admin login modal -->

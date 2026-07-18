@@ -391,3 +391,92 @@ notifySendBtn.addEventListener("click", async () => {
     notifySendBtn.disabled = false;
   }
 });
+
+// ---------- Public bug-report sidebar ----------
+const reportBugBtn = document.getElementById("report-bug-btn");
+const bugSidebar = document.getElementById("bug-sidebar");
+const sidebarOverlay = document.getElementById("sidebar-overlay");
+const bugCloseBtn = document.getElementById("bug-close-btn");
+const bugNameInput = document.getElementById("bug-name");
+const bugMessageInput = document.getElementById("bug-message");
+const bugSubmitBtn = document.getElementById("bug-submit-btn");
+const bugFormStatus = document.getElementById("bug-form-status");
+const bugList = document.getElementById("bug-list");
+
+function openBugSidebar() {
+  bugSidebar.classList.add("open");
+  sidebarOverlay.classList.add("show");
+  loadBugReports();
+}
+function closeBugSidebar() {
+  bugSidebar.classList.remove("open");
+  sidebarOverlay.classList.remove("show");
+}
+
+reportBugBtn.addEventListener("click", openBugSidebar);
+bugCloseBtn.addEventListener("click", closeBugSidebar);
+sidebarOverlay.addEventListener("click", closeBugSidebar);
+
+function timeAgo(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+async function loadBugReports() {
+  bugList.innerHTML = "Loading...";
+  try {
+    const res = await fetch("/api/bugs");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load reports.");
+
+    if (!data.reports.length) {
+      bugList.innerHTML = `<div class="bug-empty">No bug reports yet. Be the first!</div>`;
+      return;
+    }
+
+    bugList.innerHTML = data.reports
+      .map(
+        (r) => `
+        <div class="bug-item">
+          <span class="bug-name">${r.name}</span>
+          <span class="bug-time">${timeAgo(r.createdAt)}</span>
+          <div class="bug-msg">${r.message}</div>
+        </div>`
+      )
+      .join("");
+  } catch (err) {
+    bugList.innerHTML = `<div class="bug-empty">⚠️ ${err.message}</div>`;
+  }
+}
+
+bugSubmitBtn.addEventListener("click", async () => {
+  const message = bugMessageInput.value.trim();
+  if (!message) {
+    bugFormStatus.textContent = "Please describe the bug first.";
+    return;
+  }
+
+  bugSubmitBtn.disabled = true;
+  bugFormStatus.textContent = "Submitting...";
+
+  try {
+    const res = await fetch("/api/bugs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: bugNameInput.value.trim(), message }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to submit.");
+
+    bugFormStatus.textContent = "✅ Thank you! Your report was posted.";
+    bugMessageInput.value = "";
+    await loadBugReports();
+  } catch (err) {
+    bugFormStatus.textContent = `⚠️ ${err.message}`;
+  } finally {
+    bugSubmitBtn.disabled = false;
+  }
+});

@@ -29,8 +29,12 @@ router.post('/login', (req, res) => {
     res.json({ token });
 });
 
-router.get('/sessions', requireAdmin, (req, res) => {
-    res.json({ sessions: listAllSessions() });
+router.get('/sessions', requireAdmin, async (req, res) => {
+    try {
+        res.json({ sessions: await listAllSessions() });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to load sessions: ' + err.message });
+    }
 });
 
 router.delete('/sessions/:number', requireAdmin, async (req, res) => {
