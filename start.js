@@ -19,6 +19,7 @@ const { resumeExistingSessions, startWatchdog } = require('./index');
 const registerSocketHandlers = require('./Resources/socket/socket');
 const apiRoutes = require('./Resources/web/routes');
 const adminRoutes = require('./Resources/web/adminRoutes');
+const bugRoutes = require('./Resources/web/bugRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'Resources', 'web')));
 app.use('/api', apiRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/bugs', bugRoutes);
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'Resources', 'web', 'index.html'));

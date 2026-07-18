@@ -10,10 +10,6 @@
  * the same time (same pattern as the web-pairing dashboard).
  */
 
-const fs = require('fs');
-const fsExtra = require('fs-extra');
-const path = require('path');
-const { Buffer } = require('buffer');
 const pino = require('pino');
 const chalkImport = require('chalk');
 const chalk = chalkImport.default || chalkImport;
@@ -23,6 +19,7 @@ const { smsg } = require('./library/serialize');
 const { getBotResponse } = require('./library/brain');
 const { getSettings } = require('./library/settingsStore');
 const { isBanned } = require('./library/adminStore');
+const { useMongoAuthState, removeMongoSession, mongoSessionExists, listMongoSessionIds } = require('./library/mongoAuthState');
 
 process.on('uncaughtException', (err) => {
     console.error(chalk.red('CRITICAL ERROR (Uncaught Exception):'), err);
@@ -35,7 +32,6 @@ process.on('unhandledRejection', (reason) => {
 // --- Dynamic Baileys import (loaded once, reused for every session) ---
 let makeWASocket,
     Browsers,
-    useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
     jidDecode,
@@ -48,7 +44,6 @@ const loadBaileys = () => {
         baileysReady = import('@whiskeysockets/baileys').then((baileys) => {
             makeWASocket = baileys.default;
             Browsers = baileys.Browsers;
-            useMultiFileAuthState = baileys.useMultiFileAuthState;
             DisconnectReason = baileys.DisconnectReason;
             fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
             jidDecode = baileys.jidDecode;
@@ -65,7 +60,6 @@ const loadBaileys = () => {
 // Global auto-AI toggle (kept as a simple in-memory flag, same as before)
 let autoAi = config.autoAi || false;
 
-const SESSIONS_ROOT = path.join(__dirname, 'sessions');
 const activeSockets = {};
 const reconnectAttempts = {}; // sessionId -> consecutive failed-reconnect count
 
@@ -90,22 +84,8 @@ async function startBot(number, io, onPairingCode) {
     await loadBaileys();
 
     const sessionId = String(number).replace(/[^0-9]/g, '');
-    const sessionPath = path.join(SESSIONS_ROOT, sessionId);
-    fsExtra.ensureDirSync(sessionPath);
 
-    // Legacy support: allow seeding a session from a base64 SESSION_ID env value,
-    // same format the bot used before ("DarkX-Ultra~<base64 creds>").
-    const seedId = process.env.SESSION_ID;
-    if (seedId && seedId.startsWith('DarkX-Ultra~') && !fs.existsSync(path.join(sessionPath, 'creds.json'))) {
-        try {
-            const base64Data = seedId.split('DarkX-Ultra~')[1];
-            fs.writeFileSync(path.join(sessionPath, 'creds.json'), Buffer.from(base64Data, 'base64').toString('utf-8'));
-        } catch (e) {
-            console.log(chalk.red('❌ SESSION_ID is corrupt, ignoring.'));
-        }
-    }
-
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    const { state, saveCreds } = await useMongoAuthState(sessionId);
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -139,7 +119,7 @@ async function startBot(number, io, onPairingCode) {
     sock.sessionId = sessionId;
 
     // --- Pairing code (web-driven instead of terminal prompt) ---
-    if (!sock.authState?.creds?.registered) {
+    if (!state.creds?.registered) {
         try {
             await delay(1500);
             const code = await sock.requestPairingCode(sessionId);
@@ -195,17 +175,17 @@ async function startBot(number, io, onPairingCode) {
                 reconnectAttempts[sessionId] = attempt;
                 const backoffMs = Math.min(5_000 * Math.pow(2, attempt - 1), 5 * 60_000);
 
-                setTimeout(() => {
+                setTimeout(async () => {
                     // Don't reconnect a session that was deliberately deleted
                     // in the meantime (admin panel) or already reconnected.
-                    if (fs.existsSync(sessionPath) && !activeSockets[sessionId]) {
+                    if (!activeSockets[sessionId] && (await mongoSessionExists(sessionId))) {
                         startBot(sessionId, io).catch((err) =>
                             console.log(chalk.red(`❌ Reconnect failed for ${sessionId}: ${err.message}`))
                         );
                     }
                 }, backoffMs);
             } else {
-                fsExtra.remove(sessionPath).catch(() => {});
+                removeMongoSession(sessionId).catch(() => {});
                 delete reconnectAttempts[sessionId];
                 console.log(chalk.red(`👋 Session ${sessionId} logged out.`));
             }
@@ -301,18 +281,73 @@ async function startBot(number, io, onPairingCode) {
         }
     });
 
+    // --- GROUP JOIN / LEAVE: welcome, goodbye, antibot, antifake ---
+    sock.ev.on('group-participants.update', async ({ id: chat, participants, action }) => {
+        try {
+            if (!global.db) return;
+            if (typeof global.db.groups[chat] !== 'object') global.db.groups[chat] = {};
+            const group = global.db.groups[chat];
+
+            const groupMetadata = await sock.groupMetadata(chat).catch(() => null);
+            const groupName = groupMetadata?.subject || 'this group';
+
+            for (const participant of participants) {
+                const number = participant.split('@')[0];
+
+                if (action === 'add') {
+                    // Anti-fake: kick numbers that don't start with an allowed
+                    // country code prefix list (basic heuristic, off by default).
+                    if (group.antifake) {
+                        const allowedPrefixes = ['255', '254', '256', '257', '250']; // EA region by default
+                        if (!allowedPrefixes.some((p) => number.startsWith(p))) {
+                            await sock.groupParticipantsUpdate(chat, [participant], 'remove').catch(() => {});
+                            continue;
+                        }
+                    }
+
+                    // Anti-bot: remove numbers the admin has globally banned
+                    // trying to (re)join.
+                    if (group.antibot && isBanned(participant)) {
+                        await sock.groupParticipantsUpdate(chat, [participant], 'remove').catch(() => {});
+                        continue;
+                    }
+
+                    if (group.welcome) {
+                        const template = group.setWelcome && group.setWelcome.trim()
+                            ? group.setWelcome
+                            : `👋 Welcome @user to *${groupName}*! Please read the group rules.`;
+                        const text = template.replace(/@user/gi, `@${number}`);
+                        await sock.sendMessage(chat, { text, mentions: [participant] }).catch(() => {});
+                    }
+                }
+
+                if (action === 'remove' && group.goodbye) {
+                    const template = group.setGoodbye && group.setGoodbye.trim()
+                        ? group.setGoodbye
+                        : `👋 @user has left *${groupName}*. Goodbye!`;
+                    const text = template.replace(/@user/gi, `@${number}`);
+                    await sock.sendMessage(chat, { text, mentions: [participant] }).catch(() => {});
+                }
+            }
+        } catch (err) {
+            console.error(chalk.red('Error in group-participants.update: '), err.message);
+        }
+    });
+
     return sock;
 }
 
 /**
- * Resumes every session already saved on disk (e.g. after a restart/deploy).
+ * Resumes every session already saved in MongoDB (e.g. after a restart/redeploy).
  */
 async function resumeExistingSessions(io) {
-    fsExtra.ensureDirSync(SESSIONS_ROOT);
-
-    const existing = fs
-        .readdirSync(SESSIONS_ROOT)
-        .filter((name) => fs.statSync(path.join(SESSIONS_ROOT, name)).isDirectory());
+    let existing = [];
+    try {
+        existing = await listMongoSessionIds();
+    } catch (err) {
+        console.log(chalk.red(`❌ Could not load sessions from MongoDB: ${err.message}`));
+        return;
+    }
 
     for (const sessionId of existing) {
         console.log(chalk.cyan(`💫 Resuming saved session: ${sessionId}`));
@@ -351,12 +386,11 @@ function startWatchdog(io) {
 
 /**
  * Fully removes a session: logs it out of WhatsApp (best-effort), tears
- * down its socket, and deletes its saved credentials from disk. Used by
+ * down its socket, and deletes its saved credentials from MongoDB. Used by
  * the admin panel's "delete session" action.
  */
 async function deleteSession(number) {
     const sessionId = String(number).replace(/[^0-9]/g, '');
-    const sessionPath = path.join(SESSIONS_ROOT, sessionId);
     const sock = activeSockets[sessionId];
 
     if (sock) {
@@ -366,21 +400,21 @@ async function deleteSession(number) {
     }
     delete reconnectAttempts[sessionId];
 
-    await fsExtra.remove(sessionPath).catch(() => {});
+    await removeMongoSession(sessionId).catch(() => {});
     return true;
 }
 
 /**
- * Lists every known session (currently connected or previously saved on
- * disk) for the admin panel, with its connection status and owner info.
+ * Lists every known session (currently connected or previously saved in
+ * MongoDB) for the admin panel, with its connection status and owner info.
  */
-function listAllSessions() {
-    fsExtra.ensureDirSync(SESSIONS_ROOT);
-    const onDisk = fs
-        .readdirSync(SESSIONS_ROOT)
-        .filter((name) => fs.statSync(path.join(SESSIONS_ROOT, name)).isDirectory());
+async function listAllSessions() {
+    let stored = [];
+    try {
+        stored = await listMongoSessionIds();
+    } catch (_) {}
 
-    const allIds = new Set([...onDisk, ...Object.keys(activeSockets)]);
+    const allIds = new Set([...stored, ...Object.keys(activeSockets)]);
 
     return [...allIds].map((sessionId) => {
         const settings = getSettings(sessionId);
@@ -400,4 +434,6 @@ module.exports = {
     startWatchdog,
     deleteSession,
     listAllSessions,
+    mongoSessionExists,
+    removeMongoSession,
 };

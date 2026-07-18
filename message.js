@@ -95,6 +95,12 @@ module.exports = async (sock, m, chatUpdate) => {
 
         const reply = (teks) => sock.sendMessage(chat, { text: teks }, { quoted: m });
 
+        // --- Muted users: delete their messages in this group ---
+        if (isGroup && global.db?.groups?.[chat]?.mutedUsers?.includes(sender) && !isOwner && !isAdmin) {
+            if (isBotAdmin) await sock.sendMessage(chat, { delete: m.key }).catch(() => {});
+            return;
+        }
+
         // --- Anti-link enforcement (default OFF until the owner turns it on) ---
         if (isGroup && config.antilink && !isOwner && !isAdmin && LINK_REGEX.test(body)) {
             try {
