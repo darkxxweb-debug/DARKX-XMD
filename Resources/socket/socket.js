@@ -5,7 +5,7 @@
  * Socket.IO bridge between the web pairing page and the bot engine.
  */
 
-const { startBot, activeSockets } = require('../../index');
+const { startBot, activeSockets, mongoSessionExists, removeMongoSession } = require('../../index');
 
 module.exports = function registerSocketHandlers(io) {
     io.on('connection', (socket) => {
@@ -23,6 +23,15 @@ module.exports = function registerSocketHandlers(io) {
                 if (activeSockets[number]) {
                     socket.emit('pairing-error', { error: 'This number is already paired and connected.' });
                     return;
+                }
+
+                // If this number already has a saved session in MongoDB (e.g. an
+                // old/broken one, or someone re-linking), wipe it first so we
+                // always hand out a genuinely fresh pairing code instead of
+                // getting stuck on stale credentials.
+                if (await mongoSessionExists(number)) {
+                    socket.emit('status', { message: `♻️ Found an existing session for ${number}, resetting it first...` });
+                    await removeMongoSession(number);
                 }
 
                 socket.emit('status', { message: `✨ Generating your pairing code for ${number}...` });
