@@ -1,69 +1,47 @@
-"use strict";
+const { getMediaFromMessage } = require("../library/media");
 
-/**
- * Command: .vv / .viewonce
- * Function: Reveals a quoted "View Once" message (image/video/audio)
- */
-
-const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
+function unwrapViewOnce(message) {
+    if (!message) return null;
+    const type = Object.keys(message)[0];
+    if (type === "viewOnceMessage" || type === "viewOnceMessageV2" || type === "viewOnceMessageV2Extension") {
+        return unwrapViewOnce(message[type].message);
+    }
+    return message;
+}
 
 module.exports = {
-    command: ["vv", "viewonce", "reveal"],
-    isOwner: false, // badilisha kuwa true kama unataka owner pekee
-    isGroup: false,
-    execute: async (sock, m, { reply, chat, isOwner }) => {
+    command: ["vv", "viewonce"],
+    category: "group",
+    isOwner: true,
+    description: "Resend a view-once photo/video that was sent in this chat (reply to it)",
+    execute: async (sock, m, { reply, quoted }) => {
+        if (!quoted) return reply("Reply to the view-once message you want to resend.");
+
         try {
-            // Lazima mtumiaji arudishe (reply) kwenye ujumbe wa ViewOnce
-            const quoted = m.quoted ? m.quoted : m;
-            const mtype = quoted.mtype || Object.keys(quoted.message || {})[0];
+            const inner = unwrapViewOnce(quoted.message);
+            if (!inner) return reply("I couldn't read that message.");
 
-            // Angalia aina tofauti za ViewOnce (V1, V2, V2 Extension)
-            let viewOnceMsg =
-                quoted.message?.viewOnceMessageV2?.message ||
-                quoted.message?.viewOnceMessageV2Extension?.message ||
-                quoted.message?.viewOnceMessage?.message ||
-                null;
-
-            if (!viewOnceMsg) {
-                return reply("❌ Tafadhali *reply* kwenye ujumbe wa *View Once* (picha/video/voice) kisha tuma *.vv*");
+            const innerType = Object.keys(inner)[0];
+            if (!["imageMessage", "videoMessage"].includes(innerType)) {
+                return reply("That's not a view-once photo or video.");
             }
 
-            // Tambua aina ya media ndani ya viewOnce
-            const type = Object.keys(viewOnceMsg)[0]; // imageMessage | videoMessage | audioMessage
-            const media = viewOnceMsg[type];
+            const media = await getMediaFromMessage(sock, {
+                msg: inner[innerType],
+                message: { [innerType]: inner[innerType] },
+            });
 
-            if (!media) {
-                return reply("❌ Sikuweza kusoma media ya ujumbe huu.");
-            }
+            if (!media) return reply("❌ Couldn't download that media (it may have already expired).");
 
-            // Pakua content ya media
-            const stream = await downloadContentFromMessage(
-                media,
-                type === "imageMessage" ? "image" :
-                type === "videoMessage" ? "video" : "audio"
-            );
-
-            let buffer = Buffer.from([]);
-            for await (const chunk of stream) {
-                buffer = Buffer.concat([buffer, chunk]);
-            }
-
-            // Tuma tena kama ujumbe wa kawaida (siyo ViewOnce tena)
-            const caption = media.caption ? `🔓 *View Once Revealed*\n\n${media.caption}` : "🔓 *View Once Revealed*";
-
-            if (type === "imageMessage") {
-                await sock.sendMessage(chat, { image: buffer, caption }, { quoted: m });
-            } else if (type === "videoMessage") {
-                await sock.sendMessage(chat, { video: buffer, caption }, { quoted: m });
-            } else if (type === "audioMessage") {
-                await sock.sendMessage(chat, { audio: buffer, mimetype: "audio/ogg; codecs=opus", ptt: true }, { quoted: m });
+            const caption = inner[innerType].caption || "";
+            if (innerType === "imageMessage") {
+                await sock.sendMessage(m.chat, { image: media.buffer, caption }, { quoted: m });
             } else {
-                return reply("⚠️ Aina hii ya media haitumiki kwa sasa.");
+                await sock.sendMessage(m.chat, { video: media.buffer, caption }, { quoted: m });
             }
-
-        } catch (err) {
-            console.error("VIEWONCE ERROR:", err);
-            reply("❌ Imeshindwa kufungua View Once. Hakikisha ume-reply kwenye ujumbe sahihi.");
+        } catch (e) {
+            console.error("viewonce error:", e);
+            reply("❌ Failed to resend that view-once media.");
         }
     }
 };
