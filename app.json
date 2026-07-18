@@ -1,12 +1,17 @@
 {
   "name": "DarkX-Ultra",
   "description": "Multi-device WhatsApp Bot — DarkX-Ultra",
-  "repository": "https://github.com/darkx-pro/DarkX-Ultra",
-  "logo": "https://images.unsplash.com/photo-1614332287897-cdc485fa562d?q=80&w=1000&auto=format&fit=crop",
-  "keywords": ["bot", "whatsapp", "baileys", "darkx-ultra"],
+  "repository": "https://github.com/darkxxweb-debug/DARKX-XMD",
+  "logo": "https://files.catbox.moe/pc5uec.png",
+  "keywords": ["bot", "whatsapp", "baileys", "darkx-ultra", "mongodb"],
   "env": {
-    "SESSION_ID": {
-      "description": "(No longer required) Only used to seed a single legacy session; link numbers through the web dashboard instead.",
+    "MONGODB_URI": {
+      "description": "MongoDB connection string used to store WhatsApp session credentials",
+      "required": true
+    },
+    "ADMIN_PASSWORD": {
+      "description": "Password for the web dashboard's Admin panel",
+      "value": "admin123",
       "required": false
     },
     "PORT": {
