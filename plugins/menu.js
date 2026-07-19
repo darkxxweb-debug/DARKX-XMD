@@ -13,7 +13,7 @@ module.exports = {
             const pluginFiles = fs.readdirSync(pluginFolder).filter(f => f.endsWith(".js"));
 
             // 🔔 NEWSLETTER INFO (FOR FORWARDED LOOK)
-            const newsletterJid = "120363426285893376@newsletter";
+            const newsletterJid = "120363427307889741@newsletter";
             const newsletterName = "DARKX-ULTRA";
 
             // MEDIA
