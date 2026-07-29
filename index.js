@@ -42,13 +42,50 @@ let baileysReady = null;
 const loadBaileys = () => {
     if (!baileysReady) {
         baileysReady = import('@whiskeysockets/baileys').then((baileys) => {
-            makeWASocket = baileys.default;
-            Browsers = baileys.Browsers;
-            DisconnectReason = baileys.DisconnectReason;
-            fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
-            jidDecode = baileys.jidDecode;
-            delay = baileys.delay;
-            makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore;
+            // Debug: onyesha exact shape ya module kwenye logs (Render).
+            // Unaweza kuiondoa baadaye ikiwa kila kitu kinafanya kazi vizuri.
+            console.log(chalk.cyan('Baileys module keys:'), Object.keys(baileys));
+
+            // Baadhi ya matoleo ya baileys hu-export makeWASocket kama
+            // `default`, mengine kama named export `makeWASocket`, na
+            // mengine (kwa sababu ya CJS/ESM interop) huwa na double-wrap
+            // kwenye `default.default`. Tunachagua chochote kilicho function.
+            makeWASocket =
+                typeof baileys.default === 'function'
+                    ? baileys.default
+                    : typeof baileys.makeWASocket === 'function'
+                    ? baileys.makeWASocket
+                    : typeof baileys.default?.default === 'function'
+                    ? baileys.default.default
+                    : null;
+
+            if (typeof makeWASocket !== 'function') {
+                throw new Error(
+                    'makeWASocket haipatikani kwenye @whiskeysockets/baileys module. ' +
+                    'Angalia version yako kwenye package.json (angalia logs hapo juu za "Baileys module keys").'
+                );
+            }
+
+            Browsers = baileys.Browsers || baileys.default?.Browsers;
+            DisconnectReason = baileys.DisconnectReason || baileys.default?.DisconnectReason;
+            fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion || baileys.default?.fetchLatestBaileysVersion;
+            jidDecode = baileys.jidDecode || baileys.default?.jidDecode;
+            delay = baileys.delay || baileys.default?.delay;
+            makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore || baileys.default?.makeCacheableSignalKeyStore;
+
+            // Angalia kwamba kila kitu tunachohitaji kipo, la sivyo shindwa
+            // mapema badala ya kupata crash isiyoeleweka baadaye.
+            const missing = [];
+            if (!Browsers) missing.push('Browsers');
+            if (!DisconnectReason) missing.push('DisconnectReason');
+            if (!fetchLatestBaileysVersion) missing.push('fetchLatestBaileysVersion');
+            if (!jidDecode) missing.push('jidDecode');
+            if (!delay) missing.push('delay');
+            if (!makeCacheableSignalKeyStore) missing.push('makeCacheableSignalKeyStore');
+
+            if (missing.length) {
+                throw new Error(`Baileys exports zifuatazo hazikupatikana: ${missing.join(', ')}`);
+            }
         }).catch((e) => {
             console.error(chalk.red('Failed to load Baileys library:'), e);
             process.exit(1);
