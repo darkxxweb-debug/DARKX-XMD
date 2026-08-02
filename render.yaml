@@ -1,5 +1,5 @@
 services:
-  - type: worker
+  - type: web
     name: darkxxweb-bot-service
     env: node
     plan: starter
@@ -8,3 +8,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
