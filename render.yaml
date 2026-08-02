@@ -1,5 +1,5 @@
 services:
-  - type: web
+  - type: worker
     name: darkxxweb-bot-service
     env: node
     plan: free
