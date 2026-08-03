@@ -10,6 +10,8 @@ const express = require('express');
 const { activeSockets, deleteSession, listAllSessions } = require('../../index');
 const { getSettings } = require('../../library/settingsStore');
 const { isBanned, banNumber, unbanNumber, listBanned, adminLogin, isAdminToken } = require('../../library/adminStore');
+const transactions = require('../../library/transactionStore');
+const vouchersLib = require('../../library/voucherStore');
 
 const router = express.Router();
 
@@ -90,6 +92,58 @@ router.post('/notify', requireAdmin, async (req, res) => {
     }
 
     res.json({ ok: true, sent: results.filter((r) => r.ok).length, total: results.length, results });
+});
+
+// --- Subscription transactions ---
+router.get('/transactions', requireAdmin, async (req, res) => {
+    try {
+        res.json({ transactions: await transactions.list(req.query.status) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/transactions/:id/approve', requireAdmin, async (req, res) => {
+    try {
+        res.json({ ok: true, transaction: await transactions.approve(req.params.id) });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+router.post('/transactions/:id/reject', requireAdmin, async (req, res) => {
+    try {
+        res.json({ ok: true, transaction: await transactions.reject(req.params.id, req.body?.reason) });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// --- Vouchers ---
+router.get('/vouchers', requireAdmin, async (req, res) => {
+    try {
+        res.json({ vouchers: await vouchersLib.list() });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/vouchers', requireAdmin, async (req, res) => {
+    try {
+        const { plan, durationDays, maxUses } = req.body || {};
+        res.json({ ok: true, voucher: await vouchersLib.generate({ plan, durationDays, maxUses }) });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+router.post('/vouchers/:code/deactivate', requireAdmin, async (req, res) => {
+    try {
+        await vouchersLib.deactivate(req.params.code);
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 module.exports = router;

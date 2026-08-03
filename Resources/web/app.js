@@ -129,12 +129,149 @@ verifyBtn.addEventListener("click", async () => {
 
     sessionToken = data.token;
     await loadSettings();
+    await loadSubscriptionStatus();
     showStep("settings");
+
+    // If this browser arrived via a referral link, attribute it once.
+    const ref = localStorage.getItem("darkx_ref");
+    if (ref) {
+      fetch("/api/subscription/set-referrer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ ref }),
+      }).catch(() => {});
+      localStorage.removeItem("darkx_ref");
+    }
   } catch (err) {
     loginStatus.textContent = `⚠️ ${err.message}`;
     showStep("login");
   } finally {
     verifyBtn.disabled = false;
+  }
+});
+
+// ---------- Capture ?ref= from URL for referral attribution ----------
+(() => {
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get("ref");
+  if (ref) localStorage.setItem("darkx_ref", ref.replace(/[^0-9]/g, ""));
+})();
+
+// ---------- Sub-nav (Settings / Subscribe / Voucher / Referral) ----------
+const subnavButtons = document.querySelectorAll(".subnav-btn");
+const subpanels = {
+  settings: document.getElementById("sub-settings"),
+  subscribe: document.getElementById("sub-subscribe"),
+  voucher: document.getElementById("sub-voucher"),
+  referral: document.getElementById("sub-referral"),
+};
+subnavButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    subnavButtons.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    Object.values(subpanels).forEach((p) => p.classList.remove("active"));
+    subpanels[btn.dataset.sub].classList.add("active");
+  });
+});
+
+// ---------- Subscription status / plan badge ----------
+const planBadge = document.getElementById("plan-badge");
+const subStatusBox = document.getElementById("sub-status-box");
+const refLinkInput = document.getElementById("ref-link");
+const refInvited = document.getElementById("ref-invited");
+const refBonusHours = document.getElementById("ref-bonus-hours");
+const refBonusDays = document.getElementById("ref-bonus-days");
+
+async function loadSubscriptionStatus() {
+  try {
+    const res = await fetch("/api/subscription/status", {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not load subscription status.");
+
+    planBadge.textContent = data.planLabel.toUpperCase();
+    planBadge.className = `plan-badge ${data.plan}`;
+
+    if (data.plan === "starter") {
+      subStatusBox.textContent = "You're on the free Starter plan — limited commands (.ping, .repo, .quran, .list, .yts) and 5-hour sessions. Subscribe below to unlock more.";
+    } else {
+      const expires = data.planExpiresAt ? new Date(data.planExpiresAt).toLocaleDateString() : "—";
+      subStatusBox.textContent = `You're on the ${data.planLabel} plan. Renews/expires: ${expires}.`;
+    }
+
+    refLinkInput.value = `${window.location.origin}/?ref=${data.referralCode}`;
+    refInvited.textContent = data.referralStats?.invited || 0;
+    refBonusHours.textContent = data.referralStats?.freeBonusHoursEarned || 0;
+    refBonusDays.textContent = data.referralStats?.paidBonusDaysEarned || 0;
+  } catch (err) {
+    subStatusBox.textContent = `⚠️ ${err.message}`;
+  }
+}
+
+document.getElementById("ref-copy-btn").addEventListener("click", () => {
+  refLinkInput.select();
+  document.execCommand("copy");
+});
+
+// ---------- Package selection + payment submission ----------
+let selectedPlan = null;
+const payStep = document.getElementById("pay-step");
+const subscribeStatus = document.getElementById("subscribe-status");
+
+["pkg-lite", "pkg-pro"].forEach((id) => {
+  document.getElementById(id).addEventListener("click", () => {
+    document.querySelectorAll(".pkg-card").forEach((c) => c.classList.remove("selected"));
+    document.getElementById(id).classList.add("selected");
+    selectedPlan = id === "pkg-lite" ? "lite" : "pro";
+    payStep.style.display = "block";
+  });
+});
+
+document.getElementById("pay-submit-btn").addEventListener("click", async () => {
+  const transactionRef = document.getElementById("pay-txref").value.trim();
+  if (!selectedPlan) return;
+  if (!transactionRef) {
+    subscribeStatus.textContent = "Please enter your transaction number.";
+    return;
+  }
+
+  subscribeStatus.textContent = "Submitting...";
+  try {
+    const res = await fetch("/api/subscription/subscribe/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ plan: selectedPlan, transactionRef }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to submit request.");
+    subscribeStatus.textContent = "✅ " + data.message;
+    document.getElementById("pay-txref").value = "";
+  } catch (err) {
+    subscribeStatus.textContent = `⚠️ ${err.message}`;
+  }
+});
+
+// ---------- Voucher redeem ----------
+document.getElementById("voucher-redeem-btn").addEventListener("click", async () => {
+  const code = document.getElementById("voucher-code").value.trim();
+  const voucherStatus = document.getElementById("voucher-status");
+  if (!code) return;
+
+  voucherStatus.textContent = "Checking...";
+  try {
+    const res = await fetch("/api/subscription/voucher/redeem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Invalid voucher.");
+    voucherStatus.textContent = data.message;
+    document.getElementById("voucher-code").value = "";
+    await loadSubscriptionStatus();
+  } catch (err) {
+    voucherStatus.textContent = `⚠️ ${err.message}`;
   }
 });
 
@@ -257,7 +394,7 @@ adminLoginBtn.addEventListener("click", async () => {
     adminToken = data.token;
     adminModal.classList.remove("show");
     adminDashboard.classList.add("show");
-    await Promise.all([loadAdminSessions(), loadAdminBanned()]);
+    await Promise.all([loadAdminSessions(), loadAdminBanned(), loadAdminTransactions(), loadAdminVouchers()]);
   } catch (err) {
     adminLoginError.textContent = err.message;
   } finally {
@@ -351,6 +488,113 @@ async function loadAdminBanned() {
     adminBannedList.innerHTML = `<div class="admin-row"><span>⚠️ ${err.message}</span></div>`;
   }
 }
+
+async function loadAdminTransactions() {
+  const list = document.getElementById("admin-tx-list");
+  list.innerHTML = "Loading...";
+  try {
+    const { transactions } = await adminFetch("/api/admin/transactions?status=pending");
+    if (!transactions.length) {
+      list.innerHTML = `<div class="admin-row"><span>No pending transactions.</span></div>`;
+      return;
+    }
+    list.innerHTML = transactions
+      .map(
+        (t) => `
+        <div class="admin-row">
+          <span>📱 ${t.number} — ${t.plan.toUpperCase()} (${t.amount} TSH)<br/><small>Ref: ${t.transactionRef}</small></span>
+          <span>
+            <button class="btn-secondary" data-approve="${t._id}">Approve</button>
+            <button class="btn-danger" data-reject="${t._id}">Reject</button>
+          </span>
+        </div>`
+      )
+      .join("");
+
+    list.querySelectorAll("[data-approve]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          await adminFetch(`/api/admin/transactions/${btn.dataset.approve}/approve`, { method: "POST" });
+          await loadAdminTransactions();
+        } catch (err) {
+          alert(err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+    list.querySelectorAll("[data-reject]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          await adminFetch(`/api/admin/transactions/${btn.dataset.reject}/reject`, { method: "POST" });
+          await loadAdminTransactions();
+        } catch (err) {
+          alert(err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+  } catch (err) {
+    list.innerHTML = `<div class="admin-row"><span>⚠️ ${err.message}</span></div>`;
+  }
+}
+
+async function loadAdminVouchers() {
+  const list = document.getElementById("admin-voucher-list");
+  list.innerHTML = "Loading...";
+  try {
+    const { vouchers } = await adminFetch("/api/admin/vouchers");
+    if (!vouchers.length) {
+      list.innerHTML = `<div class="admin-row"><span>No vouchers yet.</span></div>`;
+      return;
+    }
+    list.innerHTML = vouchers
+      .map(
+        (v) => `
+        <div class="admin-row">
+          <span>🎟️ ${v._id} — ${v.plan.toUpperCase()} / ${v.durationDays}d — ${v.usedBy.length}/${v.maxUses} used ${!v.active ? "(inactive)" : ""}</span>
+          ${v.active ? `<button class="btn-danger" data-deactivate="${v._id}">Deactivate</button>` : ""}
+        </div>`
+      )
+      .join("");
+
+    list.querySelectorAll("[data-deactivate]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        try {
+          await adminFetch(`/api/admin/vouchers/${btn.dataset.deactivate}/deactivate`, { method: "POST" });
+          await loadAdminVouchers();
+        } catch (err) {
+          alert(err.message);
+          btn.disabled = false;
+        }
+      });
+    });
+  } catch (err) {
+    list.innerHTML = `<div class="admin-row"><span>⚠️ ${err.message}</span></div>`;
+  }
+}
+
+document.getElementById("voucher-generate-btn").addEventListener("click", async () => {
+  const plan = document.getElementById("voucher-plan-select").value;
+  const durationDays = document.getElementById("voucher-days-input").value || 30;
+  const maxUses = document.getElementById("voucher-uses-input").value || 1;
+  const btn = document.getElementById("voucher-generate-btn");
+  btn.disabled = true;
+  try {
+    const data = await adminFetch("/api/admin/vouchers", {
+      method: "POST",
+      body: JSON.stringify({ plan, durationDays, maxUses }),
+    });
+    alert(`Voucher created: ${data.voucher._id}`);
+    await loadAdminVouchers();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 banBtn.addEventListener("click", async () => {
   const number = banNumberInput.value.trim();

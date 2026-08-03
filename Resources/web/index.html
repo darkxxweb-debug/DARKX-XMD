@@ -163,6 +163,40 @@
     display: flex; flex-direction: column;
   }
   .bug-sidebar.open { right: 0; }
+
+  /* ---------- Subscription UI ---------- */
+  .subnav { display: flex; gap: 6px; margin-bottom: 18px; background: #1a1a2e; border-radius: 12px; padding: 4px; flex-wrap: wrap; }
+  .subnav button {
+    flex: 1; min-width: 70px; padding: 8px 6px; border: none; border-radius: 9px; background: transparent;
+    color: #9a92b3; font-weight: 600; font-size: 11px; cursor: pointer; transition: all 0.2s;
+  }
+  .subnav button.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
+  .subpanel { display: none; }
+  .subpanel.active { display: block; }
+
+  .plan-badge {
+    display: inline-block; padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    margin-bottom: 14px; letter-spacing: 0.5px;
+  }
+  .plan-badge.starter { background: rgba(255,255,255,0.08); color: #b9aee0; border: 1px solid #4a3b66; }
+  .plan-badge.lite { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid #4ade80; }
+  .plan-badge.pro { background: rgba(158, 92, 255, 0.2); color: #d9c9ff; border: 1px solid #9e5cff; }
+
+  .pkg-card {
+    background: #1a1a2e; border: 2px solid #34294f; border-radius: 16px; padding: 16px; margin-bottom: 12px;
+    cursor: pointer; transition: 0.2s;
+  }
+  .pkg-card.selected { border-color: #9e5cff; background: rgba(123,47,247,0.1); }
+  .pkg-card .pkg-name { font-weight: 700; color: #fff; font-size: 15px; }
+  .pkg-card .pkg-price { color: #b388ff; font-weight: 700; font-size: 18px; margin: 4px 0; }
+  .pkg-card .pkg-desc { color: #9a92b3; font-size: 12px; line-height: 1.5; }
+
+  .locked-cmd { color: #ff9d9d; font-size: 12px; }
+  .info-box { background: #1a1a2e; border: 1px solid #34294f; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #b9aee0; margin-bottom: 12px; }
+  .ref-link-box { display: flex; gap: 8px; margin-bottom: 10px; }
+  .ref-link-box input { flex: 1; margin-bottom: 0; }
+  .stat-row { display: flex; justify-content: space-between; background: #1a1a2e; border: 1px solid #34294f; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; font-size: 13px; }
+  .stat-row b { color: #fff; }
   .bug-sidebar-header {
     padding: 20px 22px; border-bottom: 1px solid #2a2440; display: flex;
     align-items: center; justify-content: space-between;
@@ -253,6 +287,62 @@
         </div>
 
         <div id="settings-step" style="display:none;">
+          <span id="plan-badge" class="plan-badge starter">STARTER</span>
+          <div class="subnav">
+            <button class="subnav-btn active" data-sub="settings">⚙️ Settings</button>
+            <button class="subnav-btn" data-sub="subscribe">💎 Subscribe</button>
+            <button class="subnav-btn" data-sub="voucher">🎟️ Voucher</button>
+            <button class="subnav-btn" data-sub="referral">👥 Referral</button>
+          </div>
+
+          <!-- SUBSCRIBE -->
+          <div class="subpanel" id="sub-subscribe">
+            <div id="sub-status-box" class="info-box">Loading your subscription status...</div>
+
+            <div class="pkg-card" data-plan="lite" id="pkg-lite">
+              <div class="pkg-name">Lite — 1,000 TSH / month</div>
+              <div class="pkg-price">1,000 TSH</div>
+              <div class="pkg-desc">Unlocks extra commands (stickers, downloaders, group tools) + full settings customization panel.</div>
+            </div>
+            <div class="pkg-card" data-plan="pro" id="pkg-pro">
+              <div class="pkg-name">Pro — 3,000 TSH / month</div>
+              <div class="pkg-price">3,000 TSH</div>
+              <div class="pkg-desc">Full access to every command + connect up to 2 extra bots from this same panel.</div>
+            </div>
+
+            <div id="pay-step" style="display:none;">
+              <div class="section-title">Complete Payment</div>
+              <div class="info-box">Send the package amount via TigoPesa, then enter the transaction number below. Admin will verify and activate your plan.</div>
+              <label>Transaction Number (Muamala)</label>
+              <input type="text" id="pay-txref" placeholder="e.g. CEI7X8XXXX" />
+              <button class="action" id="pay-submit-btn">Submit for Verification</button>
+            </div>
+            <div id="subscribe-status" style="font-size:12px;color:#b9aee0;margin-top:8px;min-height:16px;"></div>
+          </div>
+
+          <!-- VOUCHER -->
+          <div class="subpanel" id="sub-voucher">
+            <div class="section-title">Redeem Voucher</div>
+            <label>Voucher Code</label>
+            <input type="text" id="voucher-code" placeholder="DX-XXXXXXXX" style="text-transform:uppercase;" />
+            <button class="action" id="voucher-redeem-btn">Redeem</button>
+            <div id="voucher-status" style="font-size:12px;color:#b9aee0;margin-top:8px;min-height:16px;"></div>
+          </div>
+
+          <!-- REFERRAL -->
+          <div class="subpanel" id="sub-referral">
+            <div class="section-title">Your Referral Link</div>
+            <div class="info-box">Invite a friend — when they connect using your link, you get +1 free hour instantly. When they subscribe, you get bonus days too!</div>
+            <div class="ref-link-box">
+              <input type="text" id="ref-link" readonly />
+              <button class="action small" id="ref-copy-btn">Copy</button>
+            </div>
+            <div class="stat-row"><span>People Invited</span><b id="ref-invited">0</b></div>
+            <div class="stat-row"><span>Free Bonus Hours Earned</span><b id="ref-bonus-hours">0</b></div>
+            <div class="stat-row"><span>Bonus Days Earned (from purchases)</span><b id="ref-bonus-days">0</b></div>
+          </div>
+
+          <div class="subpanel active" id="sub-settings">
           <div class="section-title">Bot Identity</div>
           <label for="s-botName">Bot Name</label>
           <input type="text" id="s-botName" />
@@ -310,6 +400,7 @@
           <button class="action" id="save-settings-btn">Save Settings</button>
           <button class="link-btn" id="logout-btn">Log out</button>
           <div id="settings-status"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -368,6 +459,21 @@
         <button class="action small" id="ban-btn">Ban</button>
       </div>
       <div id="admin-banned-list" class="admin-list"></div>
+
+      <div class="section-title">Pending Subscription Transactions</div>
+      <div id="admin-tx-list" class="admin-list"></div>
+
+      <div class="section-title">Generate Voucher</div>
+      <div class="inline-form" style="margin-bottom:8px;">
+        <select id="voucher-plan-select" style="margin-bottom:0;">
+          <option value="lite">Lite</option>
+          <option value="pro">Pro</option>
+        </select>
+        <input type="number" id="voucher-days-input" placeholder="Days (e.g. 30)" style="margin-bottom:0;" />
+        <input type="number" id="voucher-uses-input" placeholder="Max uses (e.g. 1)" style="margin-bottom:0;" />
+        <button class="action small" id="voucher-generate-btn">Generate</button>
+      </div>
+      <div id="admin-voucher-list" class="admin-list"></div>
 
       <div class="section-title">Send Notification to All Connected Owners</div>
       <label for="notify-image">Image URL (optional)</label>
