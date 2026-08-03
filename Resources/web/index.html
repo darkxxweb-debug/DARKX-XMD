@@ -10,55 +10,91 @@
   html, body { height: 100%; }
   body {
     min-height: 100vh;
-    background: radial-gradient(circle at 20% 0%, #2c0e37 0%, #0f0f1a 45%, #0a0a12 100%);
-    color: #eee;
+    background: #f4f2fb;
+    color: #241c3a;
   }
+
+  a { color: inherit; }
+
+  /* ---------- Side menu ---------- */
+  .side-menu {
+    position: fixed; top: 0; left: 0; width: 250px; height: 100vh;
+    background: #ffffff; border-right: 1px solid #e7e1f7;
+    box-shadow: 4px 0 24px rgba(123,47,247,0.06);
+    z-index: 300; display: flex; flex-direction: column; padding: 22px 16px;
+    transition: transform 0.25s ease;
+  }
+  .side-brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 22px; }
+  .side-brand img { width: 38px; height: 38px; border-radius: 10px; box-shadow: 0 0 14px rgba(158,92,255,0.35); }
+  .side-brand h1 { font-size: 16px; color: #241c3a; }
+  .side-brand span { display: block; font-size: 10px; color: #8a80a8; font-weight: 400; }
+
+  .side-nav { display: flex; flex-direction: column; gap: 6px; flex: 1; overflow-y: auto; }
+  .side-link {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 12px;
+    background: transparent; border: none; color: #4a4266; font-size: 14px; font-weight: 600;
+    cursor: pointer; text-align: left; width: 100%; text-decoration: none; transition: 0.15s;
+  }
+  .side-link:hover { background: #f2eefd; }
+  .side-link.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
+  .side-foot { font-size: 10px; color: #a79ec2; text-align: center; padding-top: 14px; }
+
+  .menu-toggle {
+    display: none; background: #fff; border: 1px solid #e7e1f7; border-radius: 10px;
+    width: 40px; height: 40px; align-items: center; justify-content: center; cursor: pointer; font-size: 18px;
+  }
+  .menu-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(20,10,40,0.35); z-index: 250;
+  }
+  .menu-overlay.show { display: block; }
+
+  /* ---------- Main area ---------- */
+  .main-wrap { margin-left: 250px; min-height: 100vh; }
 
   /* ---------- Top bar ---------- */
   .topbar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 32px; background: rgba(15, 15, 26, 0.85); backdrop-filter: blur(8px);
-    border-bottom: 1px solid rgba(158, 92, 255, 0.2); position: sticky; top: 0; z-index: 50;
+    padding: 16px 32px; background: rgba(255,255,255,0.9); backdrop-filter: blur(8px);
+    border-bottom: 1px solid #e7e1f7; position: sticky; top: 0; z-index: 100;
   }
-  .brand { display: flex; align-items: center; gap: 12px; }
-  .brand img { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 0 18px rgba(158,92,255,0.5); }
-  .brand h1 { font-size: 20px; color: #fff; letter-spacing: 0.5px; }
-  .brand span { display: block; font-size: 11px; color: #9a92b3; font-weight: 400; }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .topbar-title { font-size: 15px; font-weight: 700; color: #241c3a; }
   .topbar-actions { display: flex; gap: 10px; align-items: center; }
   .pill-btn {
-    display: flex; align-items: center; gap: 6px; background: rgba(123, 47, 247, 0.15);
-    border: 1px solid rgba(158, 92, 255, 0.4); color: #d9c9ff; padding: 9px 16px;
+    display: flex; align-items: center; gap: 6px; background: #f2eefd;
+    border: 1px solid #ded2ff; color: #5b21c9; padding: 9px 16px;
     border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none;
     transition: 0.2s;
   }
-  .pill-btn:hover { background: rgba(123, 47, 247, 0.3); transform: translateY(-1px); }
+  .pill-btn:hover { background: #e6dcff; transform: translateY(-1px); }
+  .pill-btn.subscribe { background: linear-gradient(135deg, #7b2ff7, #4a00e0); border-color: transparent; color: #fff; }
 
   /* ---------- Hero ---------- */
   .hero { text-align: center; padding: 44px 20px 8px; }
-  .hero h2 { font-size: 30px; background: linear-gradient(135deg, #fff, #c9a9ff); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 8px; }
-  .hero p { color: #9a92b3; font-size: 14px; max-width: 560px; margin: 0 auto; }
+  .hero h2 { font-size: 32px; background: linear-gradient(135deg, #4a00e0, #9e5cff); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 10px; }
+  .hero p { color: #6f6789; font-size: 15px; max-width: 620px; margin: 0 auto; line-height: 1.6; }
 
   /* ---------- Wide layout ---------- */
   .layout {
-    max-width: 1180px; margin: 0 auto; padding: 32px 24px 60px;
+    max-width: 1400px; margin: 0 auto; padding: 32px 32px 70px;
     display: grid; grid-template-columns: 1fr; justify-items: center; gap: 28px;
   }
 
   .card {
-    background: rgba(20, 20, 32, 0.95);
+    background: #ffffff;
     border-radius: 24px;
-    padding: 36px 40px;
-    max-width: 520px;
+    padding: 44px 52px;
+    max-width: 680px;
     width: 100%;
     text-align: center;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-    border: 1px solid rgba(158, 92, 255, 0.25);
+    box-shadow: 0 20px 50px rgba(123,47,247,0.08);
+    border: 1px solid #ece6fb;
   }
 
-  .tabs { display: flex; gap: 8px; margin-bottom: 22px; background: #1a1a2e; border-radius: 14px; padding: 4px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 24px; background: #f4f2fb; border-radius: 14px; padding: 4px; }
   .tab-btn {
-    flex: 1; padding: 10px; border: none; border-radius: 10px; background: transparent;
-    color: #9a92b3; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s;
+    flex: 1; padding: 12px; border: none; border-radius: 10px; background: transparent;
+    color: #8a80a8; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s;
   }
   .tab-btn.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
 
@@ -66,340 +102,357 @@
   .panel.active { display: block; }
 
   input, select, textarea {
-    width: 100%; padding: 13px 15px; border-radius: 14px; border: 2px solid #4a3b66;
-    background: #1a1a2e; color: #eee; font-size: 15px; outline: none; margin-bottom: 12px;
+    width: 100%; padding: 14px 16px; border-radius: 14px; border: 2px solid #e2dbf5;
+    background: #faf9fe; color: #241c3a; font-size: 15px; outline: none; margin-bottom: 14px;
     transition: border-color 0.2s; font-family: inherit;
   }
-  input::placeholder, textarea::placeholder { color: #6f6789; }
-  input:focus, select:focus, textarea:focus { border-color: #9e5cff; }
+  input::placeholder, textarea::placeholder { color: #a79ec2; }
+  input:focus, select:focus, textarea:focus { border-color: #9e5cff; background: #fff; }
 
-  label { display: block; color: #b9aee0; font-size: 12px; margin-bottom: 6px; margin-top: 4px; }
+  label { display: block; color: #5b5478; font-size: 12.5px; margin-bottom: 6px; margin-top: 4px; font-weight: 600; }
 
   .toggle-row {
     display: flex; align-items: center; justify-content: space-between;
-    background: #1a1a2e; border: 1px solid #34294f; border-radius: 12px;
-    padding: 10px 14px; margin-bottom: 10px;
+    background: #faf9fe; border: 1px solid #e2dbf5; border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 10px;
   }
-  .toggle-row span { color: #d9d2ea; font-size: 13px; }
+  .toggle-row span { color: #4a4266; font-size: 13px; }
   .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
   .switch input { display: none; }
   .slider {
-    position: absolute; inset: 0; background: #4a3b66; border-radius: 999px; cursor: pointer; transition: 0.2s;
+    position: absolute; inset: 0; background: #ded2ff; border-radius: 999px; cursor: pointer; transition: 0.2s;
   }
   .slider::before {
     content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px;
-    background: #eee; border-radius: 50%; transition: 0.2s;
+    background: #fff; border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
   .switch input:checked + .slider { background: linear-gradient(135deg, #7b2ff7, #4a00e0); }
   .switch input:checked + .slider::before { transform: translateX(20px); }
 
   button.action {
-    width: 100%; padding: 14px 16px; border: none; border-radius: 14px;
+    width: 100%; padding: 15px 16px; border: none; border-radius: 14px;
     background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; font-size: 15px;
     font-weight: 600; cursor: pointer; transition: transform 0.15s; margin-top: 4px;
   }
   button.action:hover { transform: translateY(-2px); }
   button.action:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  button.action.secondary-action {
+    background: #fff; color: #5b21c9; border: 2px solid #ded2ff;
+  }
   button.link-btn {
-    background: transparent; border: none; color: #9e5cff; font-size: 12px; margin-top: 10px;
+    background: transparent; border: none; color: #7b2ff7; font-size: 12.5px; margin-top: 10px;
     cursor: pointer; width: 100%; text-decoration: underline;
   }
 
   #status, #login-status, #settings-status {
-    margin-top: 14px; font-size: 13px; color: #b9aee0; min-height: 18px;
+    margin-top: 14px; font-size: 13px; color: #6f6789; min-height: 18px;
   }
   #code-box {
-    display: none; margin-top: 18px; padding: 16px; border-radius: 16px;
-    background: #1a1a2e; border: 2px dashed #9e5cff; text-align: center;
+    display: none; margin-top: 18px; padding: 18px; border-radius: 16px;
+    background: #faf9fe; border: 2px dashed #9e5cff; text-align: center;
   }
-  #code-box .label { font-size: 12px; color: #9a92b3; margin-bottom: 6px; }
-  #pairing-code { font-size: 28px; letter-spacing: 4px; font-weight: 700; color: #b388ff; }
+  #code-box .label { font-size: 12px; color: #8a80a8; margin-bottom: 6px; }
+  #pairing-code { font-size: 30px; letter-spacing: 4px; font-weight: 700; color: #7b2ff7; }
 
-  footer { margin-top: 20px; font-size: 11px; color: #6f6789; text-align: center; line-height: 1.6; }
-  .section-title { color: #d9d2ea; font-size: 13px; font-weight: 700; margin: 14px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  footer { margin-top: 24px; font-size: 11px; color: #a79ec2; text-align: center; line-height: 1.6; }
+  .section-title { color: #4a4266; font-size: 13px; font-weight: 700; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
 
   .admin-link { color: #7b2ff7; text-decoration: none; font-weight: 600; }
   .admin-link:hover { text-decoration: underline; }
 
   .modal-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(5, 5, 12, 0.75);
+    display: none; position: fixed; inset: 0; background: rgba(30, 15, 55, 0.45);
     align-items: center; justify-content: center; z-index: 999; padding: 20px;
   }
   .modal-overlay.show { display: flex; }
   .modal-box {
-    background: #16162a; border: 1px solid rgba(158, 92, 255, 0.3); border-radius: 20px;
-    padding: 28px; max-width: 380px; width: 100%; text-align: left;
+    background: #fff; border: 1px solid #ece6fb; border-radius: 20px;
+    padding: 30px; max-width: 420px; width: 100%; text-align: left;
+    box-shadow: 0 24px 60px rgba(80,30,150,0.18);
   }
-  .modal-box.wide { max-width: 560px; max-height: 85vh; overflow-y: auto; }
-  .modal-box h2 { color: #b388ff; font-size: 18px; margin-bottom: 14px; }
-  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-  .modal-error { color: #ff6b6b; font-size: 12px; min-height: 16px; margin-bottom: 8px; }
+  .modal-box.wide { max-width: 640px; max-height: 88vh; overflow-y: auto; }
+  .modal-box h2 { color: #4a00e0; font-size: 19px; margin-bottom: 16px; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .modal-error { color: #e0454a; font-size: 12px; min-height: 16px; margin-bottom: 8px; }
   .modal-actions { display: flex; gap: 10px; align-items: center; }
   .modal-actions .action { flex: 1; }
 
   .admin-list { margin-bottom: 8px; max-height: 180px; overflow-y: auto; }
   .admin-row {
     display: flex; align-items: center; justify-content: space-between;
-    background: #1a1a2e; border: 1px solid #34294f; border-radius: 10px;
-    padding: 8px 12px; margin-bottom: 6px; font-size: 13px;
+    background: #faf9fe; border: 1px solid #e2dbf5; border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 6px; font-size: 13px;
   }
   .admin-row .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-  .dot.online { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
-  .dot.offline { background: #6b6b80; }
+  .dot.online { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .dot.offline { background: #b3aac9; }
   .admin-row button {
-    border: none; border-radius: 8px; padding: 5px 10px; font-size: 11px; cursor: pointer; font-weight: 600;
+    border: none; border-radius: 8px; padding: 6px 10px; font-size: 11px; cursor: pointer; font-weight: 600;
   }
   .btn-danger { background: #ef4444; color: #fff; }
-  .btn-secondary { background: #4a3b66; color: #eee; }
+  .btn-secondary { background: #ded2ff; color: #4a00e0; }
   .inline-form { display: flex; gap: 8px; }
   .inline-form input { flex: 1; }
-  button.action.small { width: auto; padding: 10px 16px; margin-top: 0; }
+  button.action.small { width: auto; padding: 11px 18px; margin-top: 0; }
 
   /* ---------- Bug report sidebar (public) ---------- */
   .bug-sidebar {
     position: fixed; top: 0; right: -420px; width: 400px; max-width: 92vw; height: 100vh;
-    background: #14141f; border-left: 1px solid rgba(158, 92, 255, 0.3);
-    box-shadow: -20px 0 50px rgba(0,0,0,0.5); z-index: 900; transition: right 0.3s ease;
+    background: #fff; border-left: 1px solid #ece6fb;
+    box-shadow: -20px 0 50px rgba(80,30,150,0.12); z-index: 900; transition: right 0.3s ease;
     display: flex; flex-direction: column;
   }
   .bug-sidebar.open { right: 0; }
 
   /* ---------- Subscription UI ---------- */
-  .subnav { display: flex; gap: 6px; margin-bottom: 18px; background: #1a1a2e; border-radius: 12px; padding: 4px; flex-wrap: wrap; }
+  .subnav { display: flex; gap: 6px; margin-bottom: 20px; background: #f4f2fb; border-radius: 12px; padding: 4px; flex-wrap: wrap; }
   .subnav button {
-    flex: 1; min-width: 70px; padding: 8px 6px; border: none; border-radius: 9px; background: transparent;
-    color: #9a92b3; font-weight: 600; font-size: 11px; cursor: pointer; transition: all 0.2s;
+    flex: 1; min-width: 70px; padding: 9px 6px; border: none; border-radius: 9px; background: transparent;
+    color: #8a80a8; font-weight: 600; font-size: 11px; cursor: pointer; transition: all 0.2s;
   }
   .subnav button.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
   .subpanel { display: none; }
   .subpanel.active { display: block; }
 
   .plan-badge {
-    display: inline-block; padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 700;
-    margin-bottom: 14px; letter-spacing: 0.5px;
+    display: inline-block; padding: 6px 16px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    margin-bottom: 16px; letter-spacing: 0.5px;
   }
-  .plan-badge.starter { background: rgba(255,255,255,0.08); color: #b9aee0; border: 1px solid #4a3b66; }
-  .plan-badge.lite { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid #4ade80; }
-  .plan-badge.pro { background: rgba(158, 92, 255, 0.2); color: #d9c9ff; border: 1px solid #9e5cff; }
+  .plan-badge.starter { background: #f4f2fb; color: #6f6789; border: 1px solid #e2dbf5; }
+  .plan-badge.lite { background: rgba(34, 197, 94, 0.12); color: #16a34a; border: 1px solid #22c55e; }
+  .plan-badge.pro { background: rgba(123, 47, 247, 0.1); color: #6b21d0; border: 1px solid #9e5cff; }
 
   .pkg-card {
-    background: #1a1a2e; border: 2px solid #34294f; border-radius: 16px; padding: 16px; margin-bottom: 12px;
+    background: #faf9fe; border: 2px solid #e2dbf5; border-radius: 16px; padding: 18px; margin-bottom: 12px;
     cursor: pointer; transition: 0.2s;
   }
-  .pkg-card.selected { border-color: #9e5cff; background: rgba(123,47,247,0.1); }
-  .pkg-card .pkg-name { font-weight: 700; color: #fff; font-size: 15px; }
-  .pkg-card .pkg-price { color: #b388ff; font-weight: 700; font-size: 18px; margin: 4px 0; }
-  .pkg-card .pkg-desc { color: #9a92b3; font-size: 12px; line-height: 1.5; }
+  .pkg-card.selected { border-color: #9e5cff; background: rgba(123,47,247,0.06); }
+  .pkg-card .pkg-name { font-weight: 700; color: #241c3a; font-size: 15px; }
+  .pkg-card .pkg-price { color: #7b2ff7; font-weight: 700; font-size: 18px; margin: 4px 0; }
+  .pkg-card .pkg-desc { color: #6f6789; font-size: 12.5px; line-height: 1.5; }
 
-  .locked-cmd { color: #ff9d9d; font-size: 12px; }
-  .info-box { background: #1a1a2e; border: 1px solid #34294f; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #b9aee0; margin-bottom: 12px; }
+  .locked-cmd { color: #e0454a; font-size: 12px; }
+  .info-box { background: #faf9fe; border: 1px solid #e2dbf5; border-radius: 12px; padding: 14px 16px; font-size: 12.5px; color: #5b5478; margin-bottom: 12px; line-height: 1.6; }
+  .ussd-box { background: #fbf6ff; border: 1px solid #e6d6ff; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
+  .ussd-box .ussd-title { color: #6b21d0; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+  .ussd-box ol { margin: 0 0 8px 18px; padding: 0; color: #4a4266; font-size: 13px; line-height: 1.9; }
+  .ussd-box .ussd-detail { display: flex; justify-content: space-between; background: #fff; border: 1px solid #ecdcff; border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
+  .ussd-box .ussd-detail b { color: #4a00e0; }
+  .verify-btn-wa {
+    display: block; text-align: center; width: 100%; padding: 15px 16px; border-radius: 14px;
+    background: #22c55e; color: #fff; font-size: 15px; font-weight: 700; text-decoration: none;
+    margin-top: 6px; transition: transform 0.15s;
+  }
+  .verify-btn-wa:hover { transform: translateY(-2px); }
   .ref-link-box { display: flex; gap: 8px; margin-bottom: 10px; }
   .ref-link-box input { flex: 1; margin-bottom: 0; }
-  .stat-row { display: flex; justify-content: space-between; background: #1a1a2e; border: 1px solid #34294f; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; font-size: 13px; }
-  .stat-row b { color: #fff; }
+  .stat-row { display: flex; justify-content: space-between; background: #faf9fe; border: 1px solid #e2dbf5; border-radius: 10px; padding: 11px 14px; margin-bottom: 8px; font-size: 13px; }
+  .stat-row b { color: #241c3a; }
   .bug-sidebar-header {
-    padding: 20px 22px; border-bottom: 1px solid #2a2440; display: flex;
+    padding: 20px 22px; border-bottom: 1px solid #ece6fb; display: flex;
     align-items: center; justify-content: space-between;
   }
-  .bug-sidebar-header h2 { color: #b388ff; font-size: 17px; }
+  .bug-sidebar-header h2 { color: #4a00e0; font-size: 17px; }
   .bug-sidebar-body { padding: 18px 22px; overflow-y: auto; flex: 1; }
-  .bug-form { margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px dashed #2a2440; }
+  .bug-form { margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px dashed #ece6fb; }
   .bug-form textarea { min-height: 80px; resize: vertical; }
-  .bug-list-title { font-size: 12px; color: #8f87a8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 700; }
+  .bug-list-title { font-size: 12px; color: #8a80a8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 700; }
   .bug-item {
-    background: #1a1a2e; border: 1px solid #2a2440; border-radius: 12px;
+    background: #faf9fe; border: 1px solid #ece6fb; border-radius: 12px;
     padding: 12px 14px; margin-bottom: 10px;
   }
-  .bug-item .bug-name { color: #d9c9ff; font-weight: 700; font-size: 13px; }
-  .bug-item .bug-time { color: #6f6789; font-size: 11px; float: right; }
-  .bug-item .bug-msg { color: #cfc7e0; font-size: 13px; margin-top: 6px; line-height: 1.4; white-space: pre-wrap; }
-  .bug-empty { color: #6f6789; font-size: 13px; text-align: center; padding: 30px 0; }
+  .bug-item .bug-name { color: #6b21d0; font-weight: 700; font-size: 13px; }
+  .bug-item .bug-time { color: #a79ec2; font-size: 11px; float: right; }
+  .bug-item .bug-msg { color: #4a4266; font-size: 13px; margin-top: 6px; line-height: 1.4; white-space: pre-wrap; }
+  .bug-empty { color: #a79ec2; font-size: 13px; text-align: center; padding: 30px 0; }
   .sidebar-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(5,5,12,0.6); z-index: 850;
+    display: none; position: fixed; inset: 0; background: rgba(20,10,40,0.35); z-index: 850;
   }
   .sidebar-overlay.show { display: block; }
 
+  @media (max-width: 900px) {
+    .side-menu { transform: translateX(-100%); }
+    .side-menu.open { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .menu-toggle { display: flex; }
+  }
+
   @media (max-width: 640px) {
     .topbar { padding: 12px 16px; }
-    .brand h1 { font-size: 16px; }
-    .card { padding: 26px 20px; }
-    .hero h2 { font-size: 22px; }
+    .topbar-title { font-size: 13px; }
+    .card { padding: 28px 22px; }
+    .hero h2 { font-size: 24px; }
+    .layout { padding: 24px 16px 60px; }
   }
 </style>
 </head>
 <body>
 
-  <div class="topbar">
-    <div class="brand">
+  <!-- Left side menu -->
+  <div class="menu-overlay" id="menu-overlay"></div>
+  <nav class="side-menu" id="side-menu">
+    <div class="side-brand">
       <img src="https://files.catbox.moe/pc5uec.png" alt="DarkX-Ultra logo" />
       <div>
         <h1>DarkX-Ultra</h1>
-        <span>Multi-Device WhatsApp Bot Dashboard</span>
+        <span>WhatsApp Bot Dashboard</span>
       </div>
     </div>
-    <div class="topbar-actions">
-      <button class="pill-btn" id="report-bug-btn">🐞 Report Bug</button>
-      <a href="#" class="pill-btn" id="admin-link">🔐 Admin</a>
+    <div class="side-nav">
+      <button class="side-link active" data-nav="pair">🔗 Link Device</button>
+      <button class="side-link" data-nav="login">⚙️ Login / Settings</button>
+      <button class="side-link" id="side-subscribe-btn">💎 Subscribe</button>
+      <button class="side-link" id="side-report-bug-btn">🐞 Report Bug</button>
+      <a href="#" class="side-link" id="admin-link">🔐 Admin</a>
     </div>
-  </div>
+    <div class="side-foot">© 2026 DarkX-Ultra</div>
+  </nav>
 
-  <div class="hero">
-    <h2>Link, Manage & Customize Your Bot</h2>
-    <p>Pair a WhatsApp number in seconds, then log in anytime to personalize its name, owner, reactions, and protections.</p>
-  </div>
-
-  <div class="layout">
-    <div class="card">
-      <div class="tabs">
-        <button class="tab-btn active" data-tab="pair">🔗 Link Device</button>
-        <button class="tab-btn" data-tab="login">⚙️ Login / Settings</button>
+  <div class="main-wrap">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menu-toggle">☰</button>
+        <div class="topbar-title">Multi-Device WhatsApp Bot Dashboard</div>
       </div>
-
-      <!-- PANEL 1: Link a new device via pairing code -->
-      <div class="panel active" id="panel-pair">
-        <label for="phone">WhatsApp number (with country code)</label>
-        <input type="text" id="phone" placeholder="e.g. 2557XXXXXXXX" />
-        <button class="action" id="pair-btn">Get Pairing Code</button>
-
-        <div id="status"></div>
-
-        <div id="code-box">
-          <div class="label">✨ Your Pairing Code ✨</div>
-          <div id="pairing-code">------</div>
-          <div class="label" style="margin-top:10px;">Open WhatsApp → Linked Devices → Link with phone number, then enter this code.</div>
-        </div>
+      <div class="topbar-actions">
+        <button class="pill-btn subscribe" id="topbar-subscribe-btn">💎 Subscribe</button>
+        <button class="pill-btn" id="report-bug-btn">🐞 Report Bug</button>
       </div>
+    </div>
 
-      <!-- PANEL 2: Login with an already-linked number, then edit its settings -->
-      <div class="panel" id="panel-login">
-        <div id="login-step">
-          <label for="login-phone">WhatsApp number already linked to the bot</label>
-          <input type="text" id="login-phone" placeholder="e.g. 2557XXXXXXXX" />
-          <button class="action" id="request-code-btn">Send Verification Code</button>
-          <div id="login-status"></div>
+    <div class="hero">
+      <h2>Link, Manage & Customize Your Bot</h2>
+      <p>Pair a WhatsApp number in seconds, then log in anytime to personalize its name, owner, reactions, and protections.</p>
+    </div>
+
+    <div class="layout">
+      <div class="card">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="pair">🔗 Link Device</button>
+          <button class="tab-btn" data-tab="login">⚙️ Login / Settings</button>
         </div>
 
-        <div id="verify-step" style="display:none;">
-          <label for="verify-code">Enter the 6-digit code sent to your WhatsApp</label>
-          <input type="text" id="verify-code" placeholder="000000" maxlength="6" />
-          <button class="action" id="verify-btn">Verify & Continue</button>
-          <button class="link-btn" id="back-to-login">← Use a different number</button>
+        <!-- PANEL 1: Link a new device via pairing code -->
+        <div class="panel active" id="panel-pair">
+          <label for="phone">WhatsApp number (with country code)</label>
+          <input type="text" id="phone" placeholder="e.g. 2557XXXXXXXX" />
+          <button class="action" id="pair-btn">Get Pairing Code</button>
+
+          <div id="status"></div>
+
+          <div id="code-box">
+            <div class="label">✨ Your Pairing Code ✨</div>
+            <div id="pairing-code">------</div>
+            <div class="label" style="margin-top:10px;">Open WhatsApp → Linked Devices → Link with phone number, then enter this code.</div>
+          </div>
         </div>
 
-        <div id="settings-step" style="display:none;">
-          <span id="plan-badge" class="plan-badge starter">STARTER</span>
-          <div class="subnav">
-            <button class="subnav-btn active" data-sub="settings">⚙️ Settings</button>
-            <button class="subnav-btn" data-sub="subscribe">💎 Subscribe</button>
-            <button class="subnav-btn" data-sub="voucher">🎟️ Voucher</button>
-            <button class="subnav-btn" data-sub="referral">👥 Referral</button>
+        <!-- PANEL 2: Login with an already-linked number, then edit its settings -->
+        <div class="panel" id="panel-login">
+          <div id="login-step">
+            <label for="login-phone">WhatsApp number already linked to the bot</label>
+            <input type="text" id="login-phone" placeholder="e.g. 2557XXXXXXXX" />
+            <button class="action" id="request-code-btn">Send Verification Code</button>
+            <div id="login-status"></div>
           </div>
 
-          <!-- SUBSCRIBE -->
-          <div class="subpanel" id="sub-subscribe">
-            <div id="sub-status-box" class="info-box">Loading your subscription status...</div>
+          <div id="verify-step" style="display:none;">
+            <label for="verify-code">Enter the 6-digit code sent to your WhatsApp</label>
+            <input type="text" id="verify-code" placeholder="000000" maxlength="6" />
+            <button class="action" id="verify-btn">Verify & Continue</button>
+            <button class="link-btn" id="back-to-login">← Use a different number</button>
+          </div>
 
-            <div class="pkg-card" data-plan="lite" id="pkg-lite">
-              <div class="pkg-name">Lite — 1,000 TSH / month</div>
-              <div class="pkg-price">1,000 TSH</div>
-              <div class="pkg-desc">Unlocks extra commands (stickers, downloaders, group tools) + full settings customization panel.</div>
+          <div id="settings-step" style="display:none;">
+            <span id="plan-badge" class="plan-badge starter">STARTER</span>
+            <button class="action secondary-action" id="open-subscribe-modal-btn" style="margin-bottom:16px;">💎 Manage Subscription</button>
+            <div class="subnav">
+              <button class="subnav-btn active" data-sub="settings">⚙️ Settings</button>
+              <button class="subnav-btn" data-sub="voucher">🎟️ Voucher</button>
+              <button class="subnav-btn" data-sub="referral">👥 Referral</button>
             </div>
-            <div class="pkg-card" data-plan="pro" id="pkg-pro">
-              <div class="pkg-name">Pro — 3,000 TSH / month</div>
-              <div class="pkg-price">3,000 TSH</div>
-              <div class="pkg-desc">Full access to every command + connect up to 2 extra bots from this same panel.</div>
+
+            <!-- VOUCHER -->
+            <div class="subpanel" id="sub-voucher">
+              <div class="section-title">Redeem Voucher</div>
+              <label>Voucher Code</label>
+              <input type="text" id="voucher-code" placeholder="DX-XXXXXXXX" style="text-transform:uppercase;" />
+              <button class="action" id="voucher-redeem-btn">Redeem</button>
+              <div id="voucher-status" style="font-size:12px;color:#6f6789;margin-top:8px;min-height:16px;"></div>
             </div>
 
-            <div id="pay-step" style="display:none;">
-              <div class="section-title">Complete Payment</div>
-              <div class="info-box">Send the package amount via TigoPesa, then enter the transaction number below. Admin will verify and activate your plan.</div>
-              <label>Transaction Number (Muamala)</label>
-              <input type="text" id="pay-txref" placeholder="e.g. CEI7X8XXXX" />
-              <button class="action" id="pay-submit-btn">Submit for Verification</button>
+            <!-- REFERRAL -->
+            <div class="subpanel" id="sub-referral">
+              <div class="section-title">Your Referral Link</div>
+              <div class="info-box">Invite a friend — when they connect using your link, you get +1 free hour instantly. When they subscribe, you get bonus days too!</div>
+              <div class="ref-link-box">
+                <input type="text" id="ref-link" readonly />
+                <button class="action small" id="ref-copy-btn">Copy</button>
+              </div>
+              <div class="stat-row"><span>People Invited</span><b id="ref-invited">0</b></div>
+              <div class="stat-row"><span>Free Bonus Hours Earned</span><b id="ref-bonus-hours">0</b></div>
+              <div class="stat-row"><span>Bonus Days Earned (from purchases)</span><b id="ref-bonus-days">0</b></div>
             </div>
-            <div id="subscribe-status" style="font-size:12px;color:#b9aee0;margin-top:8px;min-height:16px;"></div>
-          </div>
 
-          <!-- VOUCHER -->
-          <div class="subpanel" id="sub-voucher">
-            <div class="section-title">Redeem Voucher</div>
-            <label>Voucher Code</label>
-            <input type="text" id="voucher-code" placeholder="DX-XXXXXXXX" style="text-transform:uppercase;" />
-            <button class="action" id="voucher-redeem-btn">Redeem</button>
-            <div id="voucher-status" style="font-size:12px;color:#b9aee0;margin-top:8px;min-height:16px;"></div>
-          </div>
+            <div class="subpanel active" id="sub-settings">
+            <div class="section-title">Bot Identity</div>
+            <label for="s-botName">Bot Name</label>
+            <input type="text" id="s-botName" />
+            <label for="s-ownerName">Owner Name</label>
+            <input type="text" id="s-ownerName" />
+            <label for="s-ownerNumber">Owner Number (used for owner-only commands)</label>
+            <input type="text" id="s-ownerNumber" />
+            <label for="s-prefix">Command Prefix</label>
+            <input type="text" id="s-prefix" maxlength="2" />
 
-          <!-- REFERRAL -->
-          <div class="subpanel" id="sub-referral">
-            <div class="section-title">Your Referral Link</div>
-            <div class="info-box">Invite a friend — when they connect using your link, you get +1 free hour instantly. When they subscribe, you get bonus days too!</div>
-            <div class="ref-link-box">
-              <input type="text" id="ref-link" readonly />
-              <button class="action small" id="ref-copy-btn">Copy</button>
+            <div class="section-title">Status Reactions</div>
+            <label for="s-statusEmojis">Status Reaction Emojis (comma separated)</label>
+            <input type="text" id="s-statusEmojis" placeholder="🔥, 💎, 💜, ❤️" />
+
+            <div class="section-title">Chat Reactions</div>
+            <label for="s-chatEmojis">Auto Chat Reaction Emojis (comma separated)</label>
+            <input type="text" id="s-chatEmojis" placeholder="😆, 😱, 😂" />
+
+            <div class="section-title">Protection (default OFF)</div>
+            <div class="toggle-row">
+              <span>Anti-Link — remove links posted by non-admins</span>
+              <label class="switch"><input type="checkbox" id="s-antilink" /><span class="slider"></span></label>
             </div>
-            <div class="stat-row"><span>People Invited</span><b id="ref-invited">0</b></div>
-            <div class="stat-row"><span>Free Bonus Hours Earned</span><b id="ref-bonus-hours">0</b></div>
-            <div class="stat-row"><span>Bonus Days Earned (from purchases)</span><b id="ref-bonus-days">0</b></div>
-          </div>
+            <div class="toggle-row">
+              <span>Anti-Delete — report deleted messages</span>
+              <label class="switch"><input type="checkbox" id="s-antidelete" /><span class="slider"></span></label>
+            </div>
 
-          <div class="subpanel active" id="sub-settings">
-          <div class="section-title">Bot Identity</div>
-          <label for="s-botName">Bot Name</label>
-          <input type="text" id="s-botName" />
-          <label for="s-ownerName">Owner Name</label>
-          <input type="text" id="s-ownerName" />
-          <label for="s-ownerNumber">Owner Number (used for owner-only commands)</label>
-          <input type="text" id="s-ownerNumber" />
-          <label for="s-prefix">Command Prefix</label>
-          <input type="text" id="s-prefix" maxlength="2" />
+            <div class="section-title">Automation</div>
+            <div class="toggle-row">
+              <span>Auto View Status</span>
+              <label class="switch"><input type="checkbox" id="s-autoViewStatus" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto React to Status</span>
+              <label class="switch"><input type="checkbox" id="s-autoReactStatus" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto Read Chats</span>
+              <label class="switch"><input type="checkbox" id="s-autoReadChat" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto React to Chats</span>
+              <label class="switch"><input type="checkbox" id="s-autoReactChat" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto Typing Indicator</span>
+              <label class="switch"><input type="checkbox" id="s-autoTyping" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto Recording Indicator</span>
+              <label class="switch"><input type="checkbox" id="s-autoRecording" /><span class="slider"></span></label>
+            </div>
 
-          <div class="section-title">Status Reactions</div>
-          <label for="s-statusEmojis">Status Reaction Emojis (comma separated)</label>
-          <input type="text" id="s-statusEmojis" placeholder="🔥, 💎, 💜, ❤️" />
-
-          <div class="section-title">Chat Reactions</div>
-          <label for="s-chatEmojis">Auto Chat Reaction Emojis (comma separated)</label>
-          <input type="text" id="s-chatEmojis" placeholder="😆, 😱, 😂" />
-
-          <div class="section-title">Protection (default OFF)</div>
-          <div class="toggle-row">
-            <span>Anti-Link — remove links posted by non-admins</span>
-            <label class="switch"><input type="checkbox" id="s-antilink" /><span class="slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <span>Anti-Delete — report deleted messages</span>
-            <label class="switch"><input type="checkbox" id="s-antidelete" /><span class="slider"></span></label>
-          </div>
-
-          <div class="section-title">Automation</div>
-          <div class="toggle-row">
-            <span>Auto View Status</span>
-            <label class="switch"><input type="checkbox" id="s-autoViewStatus" /><span class="slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <span>Auto React to Status</span>
-            <label class="switch"><input type="checkbox" id="s-autoReactStatus" /><span class="slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <span>Auto Read Chats</span>
-            <label class="switch"><input type="checkbox" id="s-autoReadChat" /><span class="slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <span>Auto React to Chats</span>
-            <label class="switch"><input type="checkbox" id="s-autoReactChat" /><span class="slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <span>Auto Typing Indicator</span>
-            <label class="switch"><input type="checkbox" id="s-autoTyping" /><span class="slider"></span></label>
-          </div>
-          <div class="toggle-row">
-            <span>Auto Recording Indicator</span>
-            <label class="switch"><input type="checkbox" id="s-autoRecording" /><span class="slider"></span></label>
-          </div>
-
-          <button class="action" id="save-settings-btn">Save Settings</button>
-          <button class="link-btn" id="logout-btn">Log out</button>
-          <div id="settings-status"></div>
+            <button class="action" id="save-settings-btn">Save Settings</button>
+            <button class="link-btn" id="logout-btn">Log out</button>
+            <div id="settings-status"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -422,10 +475,61 @@
         <label for="bug-message">Describe the bug</label>
         <textarea id="bug-message" placeholder="What happened? Which command? Any error shown?" maxlength="500"></textarea>
         <button class="action" id="bug-submit-btn">Submit Report</button>
-        <div id="bug-form-status" style="font-size:12px;color:#b9aee0;margin-top:8px;min-height:16px;"></div>
+        <div id="bug-form-status" style="font-size:12px;color:#6f6789;margin-top:8px;min-height:16px;"></div>
       </div>
       <div class="bug-list-title">Public Reports (visible to everyone)</div>
       <div id="bug-list"></div>
+    </div>
+  </div>
+
+  <!-- Subscription window (its own modal) -->
+  <div id="subscribe-modal" class="modal-overlay">
+    <div class="modal-box wide">
+      <div class="modal-header">
+        <h2>💎 Subscription</h2>
+        <button class="link-btn" id="subscribe-close-btn" style="width:auto;margin:0;">Close</button>
+      </div>
+
+      <div id="sub-status-box" class="info-box">Loading your subscription status...</div>
+
+      <div class="pkg-card" data-plan="lite" id="pkg-lite">
+        <div class="pkg-name">Lite — 1,000 TSH / month</div>
+        <div class="pkg-price">1,000 TSH</div>
+        <div class="pkg-desc">Unlocks extra commands (stickers, downloaders, group tools) + full settings customization panel.</div>
+      </div>
+      <div class="pkg-card" data-plan="pro" id="pkg-pro">
+        <div class="pkg-name">Pro — 3,000 TSH / month</div>
+        <div class="pkg-price">3,000 TSH</div>
+        <div class="pkg-desc">Full access to every command + connect up to 2 extra bots from this same panel.</div>
+      </div>
+
+      <div id="pay-step" style="display:none;">
+        <div class="section-title">How to Pay (USSD)</div>
+        <div class="ussd-box">
+          <div class="ussd-title">📲 Send money via USSD</div>
+          <ol>
+            <li>Dial <b>*150*00#</b> (Tigo Pesa) or <b>*150*01#</b> (Halopesa/Yas)</li>
+            <li>Choose <b>Tuma Pesa</b> (Send Money)</li>
+            <li>Enter the number below and confirm the name shown is <b>JAMILA</b></li>
+            <li>Enter the package amount and confirm with your PIN</li>
+            <li>Copy the transaction number (Muamala) from the confirmation SMS and fill the form below</li>
+          </ol>
+          <div class="ussd-detail"><span>Send to number</span><b>0775710774</b></div>
+          <div class="ussd-detail"><span>Network</span><b>Tigo Pesa / Yas (Halopesa)</b></div>
+          <div class="ussd-detail"><span>Registered name</span><b>JAMILA</b></div>
+        </div>
+
+        <div class="section-title">Submit Your Payment</div>
+        <label>Your Phone Number (the one you paid from)</label>
+        <input type="text" id="pay-phone" placeholder="e.g. 2557XXXXXXXX" />
+        <label>Transaction Number (Muamala)</label>
+        <input type="text" id="pay-txref" placeholder="e.g. CEI7X8XXXX" />
+        <button class="action" id="pay-submit-btn">Submit for Verification</button>
+        <div id="subscribe-status" style="font-size:12px;color:#6f6789;margin-top:8px;min-height:16px;"></div>
+
+        <a href="#" target="_blank" class="verify-btn-wa" id="verify-whatsapp-btn">✅ Verify Your Subscription on WhatsApp</a>
+        <div class="info-box" style="margin-top:10px;">Tapping the button above opens WhatsApp with a message already prepared, telling the admin you've paid so they can activate your package.</div>
+      </div>
     </div>
   </div>
 

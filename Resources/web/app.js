@@ -2,17 +2,41 @@
 
 const socket = io();
 
-// ---------- Tabs ----------
+// ---------- Side menu (mobile toggle) ----------
+const sideMenu = document.getElementById("side-menu");
+const menuToggle = document.getElementById("menu-toggle");
+const menuOverlay = document.getElementById("menu-overlay");
+
+function openSideMenu() {
+  sideMenu.classList.add("open");
+  menuOverlay.classList.add("show");
+}
+function closeSideMenu() {
+  sideMenu.classList.remove("open");
+  menuOverlay.classList.remove("show");
+}
+menuToggle.addEventListener("click", () => {
+  sideMenu.classList.contains("open") ? closeSideMenu() : openSideMenu();
+});
+menuOverlay.addEventListener("click", closeSideMenu);
+
+// ---------- Tabs (top tabs + side menu both switch the same panels) ----------
 const tabButtons = document.querySelectorAll(".tab-btn");
+const sideNavLinks = document.querySelectorAll(".side-link[data-nav]");
 const panels = { pair: document.getElementById("panel-pair"), login: document.getElementById("panel-login") };
 
+function switchTab(tab) {
+  tabButtons.forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  sideNavLinks.forEach((b) => b.classList.toggle("active", b.dataset.nav === tab));
+  Object.entries(panels).forEach(([key, p]) => p.classList.toggle("active", key === tab));
+  closeSideMenu();
+}
+
 tabButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    tabButtons.forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    Object.values(panels).forEach((p) => p.classList.remove("active"));
-    panels[btn.dataset.tab].classList.add("active");
-  });
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+sideNavLinks.forEach((btn) => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.nav));
 });
 
 // ---------- Panel 1: Pairing ----------
@@ -80,6 +104,60 @@ function showStep(step) {
   settingsStep.style.display = step === "settings" ? "block" : "none";
 }
 
+// ---------- Persistent login (stay logged in, block back navigation) ----------
+const SESSION_KEY = "darkx_session_token";
+const SESSION_NUMBER_KEY = "darkx_session_number";
+let historyLocked = false;
+
+function saveSession(token, number) {
+  localStorage.setItem(SESSION_KEY, token);
+  localStorage.setItem(SESSION_NUMBER_KEY, number);
+}
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(SESSION_NUMBER_KEY);
+}
+
+// Once logged in, trap the browser Back button so it can't step the user
+// out of the logged-in view. The only way out is the Log out button.
+function lockHistory() {
+  if (historyLocked) return;
+  historyLocked = true;
+  history.pushState({ darkxLocked: true }, "", window.location.href);
+  window.addEventListener("popstate", () => {
+    if (historyLocked) {
+      history.pushState({ darkxLocked: true }, "", window.location.href);
+    }
+  });
+}
+function unlockHistory() {
+  historyLocked = false;
+}
+
+async function restoreSession() {
+  const token = localStorage.getItem(SESSION_KEY);
+  const number = localStorage.getItem(SESSION_NUMBER_KEY);
+  if (!token || !number) return false;
+
+  sessionToken = token;
+  sessionNumber = number;
+  try {
+    await loadSettings();
+    await loadSubscriptionStatus();
+    switchTab("login");
+    showStep("settings");
+    lockHistory();
+    return true;
+  } catch (err) {
+    // Session expired or invalid — fall back to a normal login.
+    clearSession();
+    sessionToken = null;
+    sessionNumber = null;
+    showStep("login");
+    return false;
+  }
+}
+
 requestCodeBtn.addEventListener("click", async () => {
   const number = loginPhoneInput.value.trim();
   if (!number) {
@@ -128,9 +206,11 @@ verifyBtn.addEventListener("click", async () => {
     if (!res.ok) throw new Error(data.error || "Invalid code.");
 
     sessionToken = data.token;
+    saveSession(sessionToken, sessionNumber);
     await loadSettings();
     await loadSubscriptionStatus();
     showStep("settings");
+    lockHistory();
 
     // If this browser arrived via a referral link, attribute it once.
     const ref = localStorage.getItem("darkx_ref");
@@ -157,11 +237,10 @@ verifyBtn.addEventListener("click", async () => {
   if (ref) localStorage.setItem("darkx_ref", ref.replace(/[^0-9]/g, ""));
 })();
 
-// ---------- Sub-nav (Settings / Subscribe / Voucher / Referral) ----------
+// ---------- Sub-nav (Settings / Voucher / Referral) ----------
 const subnavButtons = document.querySelectorAll(".subnav-btn");
 const subpanels = {
   settings: document.getElementById("sub-settings"),
-  subscribe: document.getElementById("sub-subscribe"),
   voucher: document.getElementById("sub-voucher"),
   referral: document.getElementById("sub-referral"),
 };
@@ -214,6 +293,48 @@ document.getElementById("ref-copy-btn").addEventListener("click", () => {
   document.execCommand("copy");
 });
 
+// ---------- Subscription modal (its own window) ----------
+const subscribeModal = document.getElementById("subscribe-modal");
+const subscribeCloseBtn = document.getElementById("subscribe-close-btn");
+const payPhoneInput = document.getElementById("pay-phone");
+const verifyWhatsappBtn = document.getElementById("verify-whatsapp-btn");
+const WHATSAPP_ADMIN_NUMBER = "255775710774";
+
+function openSubscribeModal() {
+  if (!sessionToken) {
+    switchTab("login");
+    loginStatus.textContent = "Please log in first, then open Subscribe.";
+    return;
+  }
+  if (payPhoneInput && !payPhoneInput.value) payPhoneInput.value = sessionNumber || "";
+  updateWhatsappVerifyLink();
+  subscribeModal.classList.add("show");
+  loadSubscriptionStatus();
+  closeSideMenu();
+}
+function closeSubscribeModal() {
+  subscribeModal.classList.remove("show");
+}
+
+document.getElementById("side-subscribe-btn").addEventListener("click", openSubscribeModal);
+document.getElementById("topbar-subscribe-btn").addEventListener("click", openSubscribeModal);
+document.getElementById("open-subscribe-modal-btn").addEventListener("click", openSubscribeModal);
+subscribeCloseBtn.addEventListener("click", closeSubscribeModal);
+subscribeModal.addEventListener("click", (e) => {
+  if (e.target === subscribeModal) closeSubscribeModal();
+});
+
+function updateWhatsappVerifyLink() {
+  const phone = (payPhoneInput?.value || sessionNumber || "").trim();
+  const txref = document.getElementById("pay-txref")?.value.trim() || "";
+  const planLabel = selectedPlan ? selectedPlan.toUpperCase() : "";
+  let msg = "Nimelipia ila sijapokea package.";
+  if (planLabel) msg += ` Package: ${planLabel}.`;
+  if (phone) msg += ` Namba yangu: ${phone}.`;
+  if (txref) msg += ` Muamala: ${txref}.`;
+  verifyWhatsappBtn.href = `https://wa.me/${WHATSAPP_ADMIN_NUMBER}?text=${encodeURIComponent(msg)}`;
+}
+
 // ---------- Package selection + payment submission ----------
 let selectedPlan = null;
 const payStep = document.getElementById("pay-step");
@@ -225,12 +346,22 @@ const subscribeStatus = document.getElementById("subscribe-status");
     document.getElementById(id).classList.add("selected");
     selectedPlan = id === "pkg-lite" ? "lite" : "pro";
     payStep.style.display = "block";
+    if (payPhoneInput && !payPhoneInput.value) payPhoneInput.value = sessionNumber || "";
+    updateWhatsappVerifyLink();
   });
 });
 
+document.getElementById("pay-txref").addEventListener("input", updateWhatsappVerifyLink);
+if (payPhoneInput) payPhoneInput.addEventListener("input", updateWhatsappVerifyLink);
+
 document.getElementById("pay-submit-btn").addEventListener("click", async () => {
+  const payerNumber = payPhoneInput.value.trim();
   const transactionRef = document.getElementById("pay-txref").value.trim();
   if (!selectedPlan) return;
+  if (!payerNumber) {
+    subscribeStatus.textContent = "Please enter the phone number you paid from.";
+    return;
+  }
   if (!transactionRef) {
     subscribeStatus.textContent = "Please enter your transaction number.";
     return;
@@ -241,12 +372,12 @@ document.getElementById("pay-submit-btn").addEventListener("click", async () => 
     const res = await fetch("/api/subscription/subscribe/request", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-      body: JSON.stringify({ plan: selectedPlan, transactionRef }),
+      body: JSON.stringify({ plan: selectedPlan, transactionRef, payerNumber }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to submit request.");
-    subscribeStatus.textContent = "✅ " + data.message;
-    document.getElementById("pay-txref").value = "";
+    subscribeStatus.textContent = "✅ " + data.message + " You can tap 'Verify Your Subscription' below to notify the admin on WhatsApp.";
+    updateWhatsappVerifyLink();
   } catch (err) {
     subscribeStatus.textContent = `⚠️ ${err.message}`;
   }
@@ -339,11 +470,14 @@ saveSettingsBtn.addEventListener("click", async () => {
 logoutBtn.addEventListener("click", () => {
   sessionToken = null;
   sessionNumber = null;
+  clearSession();
+  unlockHistory();
   loginPhoneInput.value = "";
   verifyCodeInput.value = "";
   loginStatus.textContent = "";
   settingsStatus.textContent = "";
   showStep("login");
+  switchTab("login");
 });
 
 // ---------- Admin dashboard ----------
@@ -373,6 +507,7 @@ adminLink.addEventListener("click", (e) => {
   adminPasswordInput.value = "";
   adminLoginError.textContent = "";
   adminModal.classList.add("show");
+  closeSideMenu();
 });
 
 adminCancelBtn.addEventListener("click", () => adminModal.classList.remove("show"));
@@ -502,7 +637,7 @@ async function loadAdminTransactions() {
       .map(
         (t) => `
         <div class="admin-row">
-          <span>📱 ${t.number} — ${t.plan.toUpperCase()} (${t.amount} TSH)<br/><small>Ref: ${t.transactionRef}</small></span>
+          <span>📱 ${t.number} — ${t.plan.toUpperCase()} (${t.amount} TSH)<br/><small>Paid from: ${t.payerNumber || t.number} · Ref: ${t.transactionRef}</small></span>
           <span>
             <button class="btn-secondary" data-approve="${t._id}">Approve</button>
             <button class="btn-danger" data-reject="${t._id}">Reject</button>
@@ -638,6 +773,7 @@ notifySendBtn.addEventListener("click", async () => {
 
 // ---------- Public bug-report sidebar ----------
 const reportBugBtn = document.getElementById("report-bug-btn");
+const sideReportBugBtn = document.getElementById("side-report-bug-btn");
 const bugSidebar = document.getElementById("bug-sidebar");
 const sidebarOverlay = document.getElementById("sidebar-overlay");
 const bugCloseBtn = document.getElementById("bug-close-btn");
@@ -651,6 +787,7 @@ function openBugSidebar() {
   bugSidebar.classList.add("open");
   sidebarOverlay.classList.add("show");
   loadBugReports();
+  closeSideMenu();
 }
 function closeBugSidebar() {
   bugSidebar.classList.remove("open");
@@ -658,6 +795,7 @@ function closeBugSidebar() {
 }
 
 reportBugBtn.addEventListener("click", openBugSidebar);
+sideReportBugBtn.addEventListener("click", openBugSidebar);
 bugCloseBtn.addEventListener("click", closeBugSidebar);
 sidebarOverlay.addEventListener("click", closeBugSidebar);
 
@@ -724,3 +862,7 @@ bugSubmitBtn.addEventListener("click", async () => {
     bugSubmitBtn.disabled = false;
   }
 });
+
+// ---------- On page load: restore an existing session if there is one ----------
+updateWhatsappVerifyLink();
+restoreSession();

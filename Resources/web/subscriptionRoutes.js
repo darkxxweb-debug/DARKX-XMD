@@ -50,8 +50,8 @@ router.post("/set-referrer", requireLogin, async (req, res) => {
 
 router.post("/subscribe/request", requireLogin, async (req, res) => {
     try {
-        const { plan, transactionRef } = req.body || {};
-        const tx = await transactions.createRequest(req.number, plan, transactionRef);
+        const { plan, transactionRef, payerNumber } = req.body || {};
+        const tx = await transactions.createRequest(req.number, plan, transactionRef, payerNumber);
         res.json({ ok: true, message: "Your payment request was submitted. Please wait for admin verification.", transaction: tx });
     } catch (err) {
         res.status(400).json({ error: err.message });
