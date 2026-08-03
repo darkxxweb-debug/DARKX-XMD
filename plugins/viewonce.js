@@ -1,13 +1,4 @@
-const { getMediaFromMessage } = require("../library/media");
-
-function unwrapViewOnce(message) {
-    if (!message) return null;
-    const type = Object.keys(message)[0];
-    if (type === "viewOnceMessage" || type === "viewOnceMessageV2" || type === "viewOnceMessageV2Extension") {
-        return unwrapViewOnce(message[type].message);
-    }
-    return message;
-}
+const { getMediaFromMessage, unwrapViewOnce } = require("../library/media");
 
 module.exports = {
     command: ["vv", "viewonce"],
