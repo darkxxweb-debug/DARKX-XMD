@@ -19,13 +19,14 @@ function normalize(number) {
     return String(number || "").replace(/[^0-9]/g, "");
 }
 
-async function createRequest(number, plan, transactionRef) {
+async function createRequest(number, plan, transactionRef, payerNumber) {
     const info = PLANS[plan];
     if (!info || !info.price) throw new Error("Invalid package selected.");
 
     const tx = {
         _id: crypto.randomBytes(8).toString("hex"),
         number: normalize(number),
+        payerNumber: payerNumber ? normalize(payerNumber) : normalize(number),
         plan,
         amount: info.price,
         transactionRef: String(transactionRef || "").trim(),
