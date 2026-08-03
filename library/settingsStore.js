@@ -35,6 +35,14 @@ const DEFAULT_OVERRIDES = () => ({
     autoTyping: config.autoTyping,
     autoRecording: config.autoRecording,
     watermark: config.watermark,
+
+    // --- Optional per-user MongoDB (media storage) ---
+    // Left empty by default -> shared bot DB is used, which is text-only
+    // and never stores media. Set this to enable saving view-once media,
+    // statuses, and anti-delete media recovery into the user's own DB.
+    mongoUrl: "",
+    autoViewOnce: false,   // auto-forward every view-once media to the owner's DM
+    autoSaveStatus: false, // auto-save every contact status update
 });
 
 function loadStore() {
@@ -85,6 +93,7 @@ const ALLOWED_FIELDS = [
     'antilink', 'antidelete', 'antideleteNotifyOwner',
     'autoViewStatus', 'autoReactStatus', 'autoReadChat', 'autoReactChat',
     'autoTyping', 'autoRecording',
+    'mongoUrl', 'autoViewOnce', 'autoSaveStatus',
 ];
 
 function updateSettings(number, partial) {
@@ -102,6 +111,16 @@ function updateSettings(number, partial) {
                 ? raw
                 : String(raw).split(',').map((e) => e.trim()).filter(Boolean);
             if (list.length) next[key] = list;
+        } else if (key === 'mongoUrl') {
+            const raw = String(partial.mongoUrl || '').trim();
+            if (raw && !/^mongodb(\+srv)?:\/\//.test(raw)) {
+                continue; // silently ignore an invalid connection string
+            }
+            if (raw !== current.mongoUrl) {
+                // eslint-disable-next-line global-require
+                require('./userMongo').forgetConnection(id);
+            }
+            next.mongoUrl = raw;
         } else {
             next[key] = partial[key];
         }
