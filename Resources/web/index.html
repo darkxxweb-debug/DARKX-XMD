@@ -60,7 +60,9 @@
   }
   .side-link:hover { background: #f2eefd; }
   .side-link.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
-  .side-foot { font-size: 10px; color: #a79ec2; text-align: center; padding-top: 14px; }
+  .side-foot { font-size: 10px; color: var(--muted); text-align: center; padding-top: 14px; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+  .admin-hint-link { color: var(--muted); opacity: 0.35; font-size: 9px; text-decoration: none; letter-spacing: 0.5px; }
+  .admin-hint-link:hover { opacity: 0.9; }
 
   .menu-toggle {
     display: none; background: var(--card-bg); border: 1px solid #e7e1f7; border-radius: 10px;
@@ -359,9 +361,11 @@
       <button class="side-link" data-nav="login">⚙️ Login / Settings</button>
       <button class="side-link" id="side-subscribe-btn">💎 Subscribe</button>
       <button class="side-link" id="side-report-bug-btn">🐞 Report Bug</button>
-      <a href="#" class="side-link" id="admin-link">🔐 Admin</a>
     </div>
-    <div class="side-foot">© 2026 DarkX-Ultra</div>
+    <div class="side-foot">
+      © 2026 DarkX-Ultra
+      <a href="#" id="admin-link" class="admin-hint-link">admin</a>
+    </div>
   </nav>
 
   <div class="main-wrap">
@@ -494,6 +498,19 @@
             <div class="toggle-row">
               <span>Auto Recording Indicator</span>
               <label class="switch"><input type="checkbox" id="s-autoRecording" /><span class="slider"></span></label>
+            </div>
+
+            <div class="section-title">Media Storage (optional)</div>
+            <label for="s-mongoUrl">Your own MongoDB URL — leave empty to use the shared bot database (text only, no media stored)</label>
+            <input type="text" id="s-mongoUrl" placeholder="mongodb+srv://user:pass@cluster.mongodb.net/mydb" />
+            <div class="info-box">Set this to unlock media saving: view-once, statuses, and anti-delete recovery will be stored in <b>your own</b> database instead. Without it, the bot never stores media anywhere.</div>
+            <div class="toggle-row">
+              <span>Auto View-Once — forward every view-once media straight to your DM, silently</span>
+              <label class="switch"><input type="checkbox" id="s-autoViewOnce" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Auto Save Status — save every contact's status automatically (needs Mongo URL above)</span>
+              <label class="switch"><input type="checkbox" id="s-autoSaveStatus" /><span class="slider"></span></label>
             </div>
 
             <button class="action" id="save-settings-btn">Save Settings</button>
@@ -673,7 +690,6 @@
     <button class="bottom-nav-btn" id="menu-toggle"><span class="icon">☰</span>Menu</button>
     <button class="bottom-nav-btn accent" id="topbar-subscribe-btn"><span class="icon">💎</span>Subscribe</button>
     <button class="bottom-nav-btn" id="report-bug-btn"><span class="icon">🐞</span>Report</button>
-    <a href="#" class="bottom-nav-btn" id="bottom-admin-link"><span class="icon">🔐</span>Admin</a>
     <button class="bottom-nav-btn" id="theme-toggle-btn"><span class="icon" id="theme-toggle-icon">🌙</span>Theme</button>
   </nav>
 

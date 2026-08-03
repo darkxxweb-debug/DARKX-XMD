@@ -454,6 +454,9 @@ async function loadSettings() {
   document.getElementById("s-autoReactChat").checked = !!s.autoReactChat;
   document.getElementById("s-autoTyping").checked = !!s.autoTyping;
   document.getElementById("s-autoRecording").checked = !!s.autoRecording;
+  document.getElementById("s-mongoUrl").value = s.mongoUrl || "";
+  document.getElementById("s-autoViewOnce").checked = !!s.autoViewOnce;
+  document.getElementById("s-autoSaveStatus").checked = !!s.autoSaveStatus;
 }
 
 saveSettingsBtn.addEventListener("click", async () => {
@@ -475,7 +478,16 @@ saveSettingsBtn.addEventListener("click", async () => {
     autoReactChat: document.getElementById("s-autoReactChat").checked,
     autoTyping: document.getElementById("s-autoTyping").checked,
     autoRecording: document.getElementById("s-autoRecording").checked,
+    mongoUrl: document.getElementById("s-mongoUrl").value.trim(),
+    autoViewOnce: document.getElementById("s-autoViewOnce").checked,
+    autoSaveStatus: document.getElementById("s-autoSaveStatus").checked,
   };
+
+  if (payload.autoSaveStatus && !payload.mongoUrl) {
+    settingsStatus.textContent = "⚠️ Set your own MongoDB URL above before turning on Auto Save Status.";
+    saveSettingsBtn.disabled = false;
+    return;
+  }
 
   try {
     const res = await fetch("/api/settings", {
