@@ -37,11 +37,35 @@ module.exports = async (sock, m, chatUpdate) => {
         const text = args.join(" ");
         const q = text;
 
-        // --- Anti-delete: remember the message so we can report a delete later ---
-        if (m.key && !fromMe && body) {
+        // --- Anti-delete: remember the message (+ media) so we can restore it later ---
+        const MEDIA_TYPES = ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"];
+        const isMediaMsg = MEDIA_TYPES.includes(m.mtype);
+        if (m.key && !fromMe && (body || isMediaMsg)) {
             const storageKey = `${chat}_${m.key.id}`;
-            recentMessages.set(storageKey, { body, sender, pushName, chat, timestamp: Date.now() });
+            const entry = { body, sender, pushName, chat, timestamp: Date.now(), media: null };
+            recentMessages.set(storageKey, entry);
             setTimeout(() => recentMessages.delete(storageKey), 10 * 60 * 1000);
+
+            // Only bother downloading media if anti-delete is actually on for this session.
+            if (config.antidelete && isMediaMsg) {
+                (async () => {
+                    try {
+                        const { getMediaFromMessage } = require("./library/media");
+                        const media = await getMediaFromMessage(sock, { msg: m.msg, message: m.message });
+                        if (media) {
+                            entry.media = media; // kept in memory for the same 10-minute window
+                            if (config.mongoUrl) {
+                                const { saveMedia } = require("./library/mediaVault");
+                                await saveMedia(sessionId, "antidelete", {
+                                    buffer: media.buffer, mimetype: media.mimetype, sender, chat,
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Anti-delete media cache error:", e.message);
+                    }
+                })();
+            }
         }
 
         // --- Anti-delete: detect a delete event ---
@@ -58,13 +82,22 @@ module.exports = async (sock, m, chatUpdate) => {
                         `⚠️ *MESSAGE DELETED*\n\n` +
                         `👤 *Sender:* ${deleted.pushName || "Unknown"}\n` +
                         `📱 *Number:* ${deletedSender}\n` +
-                        `📝 *Message:* ${deleted.body || "📝 *No text content*"}\n` +
+                        `📝 *Message:* ${deleted.body || (deleted.media ? "📎 *Media (restored below)*" : "📝 *No text content*")}\n` +
                         `🕐 *Deleted at:* ${new Date().toLocaleTimeString()}`;
 
-                    await sock.sendMessage(deleteKey.remoteJid, { text: report }).catch(() => {});
+                    const targets = [deleteKey.remoteJid];
                     if (config.antideleteNotifyOwner) {
-                        const ownerJid = config.ownerNumber.replace(/[^0-9]/g, "") + "@s.whatsapp.net";
-                        await sock.sendMessage(ownerJid, { text: `🔴 *ANTI-DELETE REPORT*\n\n${report}` }).catch(() => {});
+                        targets.push(config.ownerNumber.replace(/[^0-9]/g, "") + "@s.whatsapp.net");
+                    }
+
+                    for (const jid of targets) {
+                        await sock.sendMessage(jid, { text: jid === deleteKey.remoteJid ? report : `🔴 *ANTI-DELETE REPORT*\n\n${report}` }).catch(() => {});
+                        if (deleted.media) {
+                            const isVideo = /video/.test(deleted.media.mimetype || "");
+                            const isAudio = /audio/.test(deleted.media.mimetype || "");
+                            const key = isVideo ? "video" : isAudio ? "audio" : "image";
+                            await sock.sendMessage(jid, { [key]: deleted.media.buffer }).catch(() => {});
+                        }
                     }
                     recentMessages.delete(storageKey);
                 }

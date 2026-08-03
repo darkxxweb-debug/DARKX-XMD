@@ -16,7 +16,6 @@ const chalk = chalkImport.default || chalkImport;
 
 const config = require('./settings/config');
 const { smsg } = require('./library/serialize');
-const { getBotResponse } = require('./library/brain');
 const { getSettings } = require('./library/settingsStore');
 const { isBanned } = require('./library/adminStore');
 const { markSessionStarted, getStarterSessionDeadline } = require('./library/subscriptionStore');
@@ -94,9 +93,6 @@ const loadBaileys = () => {
     }
     return baileysReady;
 };
-
-// Global auto-AI toggle (kept as a simple in-memory flag, same as before)
-let autoAi = config.autoAi || false;
 
 const activeSockets = {};
 const reconnectAttempts = {}; // sessionId -> consecutive failed-reconnect count
@@ -243,7 +239,9 @@ async function startBot(number, io, onPairingCode) {
             if (!mek?.message) return;
 
             const msgType = Object.keys(mek.message)[0];
-            if (msgType === 'ephemeralMessage' || msgType === 'viewOnceMessage' || msgType === 'viewOnceMessageV2') {
+            const VIEWONCE_TYPES = ['viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension'];
+            const wasViewOnce = VIEWONCE_TYPES.includes(msgType);
+            if (msgType === 'ephemeralMessage' || wasViewOnce) {
                 mek.message = mek.message[msgType].message;
             }
 
@@ -256,6 +254,35 @@ async function startBot(number, io, onPairingCode) {
 
             const settings = getSettings(sessionId);
             const isOwner = m.key.fromMe || settings.ownerNumber === m.sender.split('@')[0];
+
+            // --- AUTO VIEW-ONCE: forward straight to the owner's DM, silently ---
+            // No reply/reaction is sent in the original chat, to avoid tipping
+            // off the sender or spamming the group.
+            if (wasViewOnce && settings.autoViewOnce && !m.key.fromMe) {
+                try {
+                    const innerType = Object.keys(mek.message)[0];
+                    if (['imageMessage', 'videoMessage'].includes(innerType)) {
+                        const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+                        const buffer = await downloadMediaMessage(mek, 'buffer', {});
+                        const ownerNumber = (settings.ownerNumber || sessionId).replace(/[^0-9]/g, '');
+                        const ownerJid = `${ownerNumber}@s.whatsapp.net`;
+                        const caption = mek.message[innerType].caption || '';
+                        const senderNum = m.sender.split('@')[0];
+
+                        await sock.sendMessage(ownerJid, {
+                            [innerType === 'imageMessage' ? 'image' : 'video']: buffer,
+                            caption: `👁️ *Auto View-Once*\nFrom: ${senderNum}${caption ? `\n\n${caption}` : ''}`,
+                        }).catch(() => {});
+
+                        require('./library/mediaVault').saveMedia(sessionId, 'viewonce', {
+                            buffer, mimetype: mek.message[innerType].mimetype, sender: m.sender, chat: m.chat, caption,
+                        }).catch(() => {});
+                    }
+                } catch (e) {
+                    console.error(chalk.red('Auto view-once error:'), e.message);
+                }
+                return; // fully silent: skip read/typing/react/command handling for this message
+            }
 
             // --- AUTO VIEW / REACT STATUS ---
             if (m.chat === 'status@broadcast') {
@@ -271,6 +298,23 @@ async function startBot(number, io, onPairingCode) {
                             { react: { text: randomReaction, key: mek.key } },
                             { statusJidList: [m.sender] }
                         );
+                    }
+                    // --- AUTO SAVE STATUS: media goes into the user's own DB only ---
+                    if (settings.autoSaveStatus && settings.mongoUrl) {
+                        const statusType = Object.keys(mek.message)[0];
+                        if (['imageMessage', 'videoMessage'].includes(statusType)) {
+                            const { downloadMediaMessage } = await import('@whiskeysockets/baileys');
+                            const buffer = await downloadMediaMessage(mek, 'buffer', {}).catch(() => null);
+                            if (buffer) {
+                                require('./library/mediaVault').saveMedia(sessionId, 'status', {
+                                    buffer,
+                                    mimetype: mek.message[statusType].mimetype,
+                                    sender: m.sender,
+                                    chat: m.chat,
+                                    caption: mek.message[statusType].caption || '',
+                                }).catch(() => {});
+                            }
+                        }
                     }
                 } catch (statusError) {
                     console.log(chalk.red('Status react/view error:'), statusError.message);
@@ -296,25 +340,6 @@ async function startBot(number, io, onPairingCode) {
                 const chatEmojis = settings.chatEmojis?.length ? settings.chatEmojis : ['😆'];
                 const randomEmoji = chatEmojis[Math.floor(Math.random() * chatEmojis.length)];
                 await sock.sendMessage(m.chat, { react: { text: randomEmoji, key: m.key } });
-            }
-
-            // --- AI TOGGLE ---
-            const pfx = settings.prefix || '.';
-            if (body === `${pfx}aion` && isOwner) {
-                autoAi = true;
-                return await sock.sendMessage(m.chat, { text: '✅ *DarkX-Ultra AI:* Auto-Reply is now ON!' }, { quoted: m });
-            }
-            if (body === `${pfx}aioff` && isOwner) {
-                autoAi = false;
-                return await sock.sendMessage(m.chat, { text: '📴 *DarkX-Ultra AI:* Auto-Reply is now OFF!' }, { quoted: m });
-            }
-
-            // --- AI REPLY ---
-            if (autoAi && body && !m.key.fromMe && !m.isGroup) {
-                const aiResponse = getBotResponse(body);
-                if (aiResponse) {
-                    await sock.sendMessage(m.chat, { text: aiResponse }, { quoted: m });
-                }
             }
 
             // --- MAIN COMMAND HANDLER (plugins) ---
