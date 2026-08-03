@@ -53,9 +53,6 @@ module.exports = {
     autoTyping: true,
     autoRecording: false,
 
-    // --- AUTO AI FEATURES ---
-    autoAi: false,
-
     // --- VISUALS & METADATA ---
     version: "6.0.0",
     worktype: "public",
