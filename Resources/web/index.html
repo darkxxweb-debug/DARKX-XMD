@@ -8,10 +8,33 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
   html, body { height: 100%; }
+
+  :root {
+    --bg: #f4f2fb;
+    --text: #241c3a;
+    --muted: #6f6789;
+    --card-bg: #ffffff;
+    --border: #e7e1f7;
+    --input-bg: #f8f6ff;
+    --row-bg: #f8f6fd;
+    --shadow: rgba(123,47,247,0.06);
+  }
+  [data-theme="dark"] {
+    --bg: #14101f;
+    --text: #efe9ff;
+    --muted: #a79ec2;
+    --card-bg: #1e1830;
+    --border: #322a4a;
+    --input-bg: #241c38;
+    --row-bg: #241c38;
+    --shadow: rgba(0,0,0,0.35);
+  }
+
   body {
     min-height: 100vh;
-    background: #f4f2fb;
-    color: #241c3a;
+    background: var(--bg);
+    color: var(--text);
+    transition: background 0.2s ease, color 0.2s ease;
   }
 
   a { color: inherit; }
@@ -19,14 +42,14 @@
   /* ---------- Side menu ---------- */
   .side-menu {
     position: fixed; top: 0; left: 0; width: 250px; height: 100vh;
-    background: #ffffff; border-right: 1px solid #e7e1f7;
+    background: var(--card-bg); border-right: 1px solid var(--border);
     box-shadow: 4px 0 24px rgba(123,47,247,0.06);
     z-index: 300; display: flex; flex-direction: column; padding: 22px 16px;
     transition: transform 0.25s ease;
   }
   .side-brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 22px; }
   .side-brand img { width: 38px; height: 38px; border-radius: 10px; box-shadow: 0 0 14px rgba(158,92,255,0.35); }
-  .side-brand h1 { font-size: 16px; color: #241c3a; }
+  .side-brand h1 { font-size: 16px; color: var(--text); }
   .side-brand span { display: block; font-size: 10px; color: #8a80a8; font-weight: 400; }
 
   .side-nav { display: flex; flex-direction: column; gap: 6px; flex: 1; overflow-y: auto; }
@@ -40,7 +63,7 @@
   .side-foot { font-size: 10px; color: #a79ec2; text-align: center; padding-top: 14px; }
 
   .menu-toggle {
-    display: none; background: #fff; border: 1px solid #e7e1f7; border-radius: 10px;
+    display: none; background: var(--card-bg); border: 1px solid #e7e1f7; border-radius: 10px;
     width: 40px; height: 40px; align-items: center; justify-content: center; cursor: pointer; font-size: 18px;
   }
   .menu-overlay {
@@ -49,17 +72,31 @@
   .menu-overlay.show { display: block; }
 
   /* ---------- Main area ---------- */
-  .main-wrap { margin-left: 250px; min-height: 100vh; }
+  /* The side drawer stays off-canvas on every screen size now — primary
+     navigation lives in the fixed bottom nav bar instead of a top bar. */
+  .side-menu { transform: translateX(-100%); }
+  .side-menu.open { transform: translateX(0); }
+  .menu-toggle { display: flex; }
+  .main-wrap { margin-left: 0; min-height: 100vh; padding-bottom: 88px; }
+  .topbar-title { font-size: 15px; font-weight: 700; color: var(--text); text-align: center; padding: 18px 20px 0; }
 
-  /* ---------- Top bar ---------- */
-  .topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 32px; background: rgba(255,255,255,0.9); backdrop-filter: blur(8px);
-    border-bottom: 1px solid #e7e1f7; position: sticky; top: 0; z-index: 100;
+  /* ---------- Bottom nav bar ---------- */
+  .bottom-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 200;
+    display: flex; align-items: stretch; justify-content: space-around;
+    background: var(--card-bg); border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px var(--shadow);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
   }
-  .topbar-left { display: flex; align-items: center; gap: 14px; }
-  .topbar-title { font-size: 15px; font-weight: 700; color: #241c3a; }
-  .topbar-actions { display: flex; gap: 10px; align-items: center; }
+  .bottom-nav-btn {
+    flex: 1; max-width: 110px; display: flex; flex-direction: column; align-items: center;
+    gap: 3px; background: transparent; border: none; color: var(--muted);
+    font-size: 10.5px; font-weight: 600; padding: 6px 4px; border-radius: 12px; cursor: pointer;
+    text-decoration: none;
+  }
+  .bottom-nav-btn .icon { font-size: 19px; }
+  .bottom-nav-btn:hover, .bottom-nav-btn:focus-visible { background: var(--row-bg); color: var(--text); }
+  .bottom-nav-btn.accent { color: #7b2ff7; }
   .pill-btn {
     display: flex; align-items: center; gap: 6px; background: #f2eefd;
     border: 1px solid #ded2ff; color: #5b21c9; padding: 9px 16px;
@@ -72,7 +109,7 @@
   /* ---------- Hero ---------- */
   .hero { text-align: center; padding: 44px 20px 8px; }
   .hero h2 { font-size: 32px; background: linear-gradient(135deg, #4a00e0, #9e5cff); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 10px; }
-  .hero p { color: #6f6789; font-size: 15px; max-width: 620px; margin: 0 auto; line-height: 1.6; }
+  .hero p { color: var(--muted); font-size: 15px; max-width: 620px; margin: 0 auto; line-height: 1.6; }
 
   /* ---------- Wide layout ---------- */
   .layout {
@@ -81,17 +118,17 @@
   }
 
   .card {
-    background: #ffffff;
+    background: var(--card-bg);
     border-radius: 24px;
     padding: 44px 52px;
     max-width: 680px;
     width: 100%;
     text-align: center;
     box-shadow: 0 20px 50px rgba(123,47,247,0.08);
-    border: 1px solid #ece6fb;
+    border: 1px solid var(--border);
   }
 
-  .tabs { display: flex; gap: 8px; margin-bottom: 24px; background: #f4f2fb; border-radius: 14px; padding: 4px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 24px; background: var(--row-bg); border-radius: 14px; padding: 4px; }
   .tab-btn {
     flex: 1; padding: 12px; border: none; border-radius: 10px; background: transparent;
     color: #8a80a8; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.2s;
@@ -102,18 +139,18 @@
   .panel.active { display: block; }
 
   input, select, textarea {
-    width: 100%; padding: 14px 16px; border-radius: 14px; border: 2px solid #e2dbf5;
-    background: #faf9fe; color: #241c3a; font-size: 15px; outline: none; margin-bottom: 14px;
+    width: 100%; padding: 14px 16px; border-radius: 14px; border: 2px solid var(--border);
+    background: var(--input-bg); color: var(--text); font-size: 15px; outline: none; margin-bottom: 14px;
     transition: border-color 0.2s; font-family: inherit;
   }
   input::placeholder, textarea::placeholder { color: #a79ec2; }
-  input:focus, select:focus, textarea:focus { border-color: #9e5cff; background: #fff; }
+  input:focus, select:focus, textarea:focus { border-color: #9e5cff; background: var(--card-bg); }
 
   label { display: block; color: #5b5478; font-size: 12.5px; margin-bottom: 6px; margin-top: 4px; font-weight: 600; }
 
   .toggle-row {
     display: flex; align-items: center; justify-content: space-between;
-    background: #faf9fe; border: 1px solid #e2dbf5; border-radius: 12px;
+    background: var(--input-bg); border: 1px solid #e2dbf5; border-radius: 12px;
     padding: 12px 16px; margin-bottom: 10px;
   }
   .toggle-row span { color: #4a4266; font-size: 13px; }
@@ -124,7 +161,7 @@
   }
   .slider::before {
     content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px;
-    background: #fff; border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    background: var(--card-bg); border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
   .switch input:checked + .slider { background: linear-gradient(135deg, #7b2ff7, #4a00e0); }
   .switch input:checked + .slider::before { transform: translateX(20px); }
@@ -137,7 +174,7 @@
   button.action:hover { transform: translateY(-2px); }
   button.action:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
   button.action.secondary-action {
-    background: #fff; color: #5b21c9; border: 2px solid #ded2ff;
+    background: var(--card-bg); color: #5b21c9; border: 2px solid #ded2ff;
   }
   button.link-btn {
     background: transparent; border: none; color: #7b2ff7; font-size: 12.5px; margin-top: 10px;
@@ -145,11 +182,11 @@
   }
 
   #status, #login-status, #settings-status {
-    margin-top: 14px; font-size: 13px; color: #6f6789; min-height: 18px;
+    margin-top: 14px; font-size: 13px; color: var(--muted); min-height: 18px;
   }
   #code-box {
     display: none; margin-top: 18px; padding: 18px; border-radius: 16px;
-    background: #faf9fe; border: 2px dashed #9e5cff; text-align: center;
+    background: var(--input-bg); border: 2px dashed #9e5cff; text-align: center;
   }
   #code-box .label { font-size: 12px; color: #8a80a8; margin-bottom: 6px; }
   #pairing-code { font-size: 30px; letter-spacing: 4px; font-weight: 700; color: #7b2ff7; }
@@ -166,7 +203,7 @@
   }
   .modal-overlay.show { display: flex; }
   .modal-box {
-    background: #fff; border: 1px solid #ece6fb; border-radius: 20px;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px;
     padding: 30px; max-width: 420px; width: 100%; text-align: left;
     box-shadow: 0 24px 60px rgba(80,30,150,0.18);
   }
@@ -178,9 +215,35 @@
   .modal-actions .action { flex: 1; }
 
   .admin-list { margin-bottom: 8px; max-height: 180px; overflow-y: auto; }
+
+  /* ---------- Admin dashboard shell (modular windows, ecommerce style) ---------- */
+  .admin-shell { max-width: 720px; max-height: 88vh; overflow-y: auto; }
+  .admin-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0 4px;
+  }
+  .stat-card {
+    background: var(--row-bg); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 8px; text-align: center; display: flex; flex-direction: column; gap: 2px;
+  }
+  .stat-num { font-size: 20px; font-weight: 800; color: #7b2ff7; }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .admin-tabs {
+    display: flex; gap: 6px; overflow-x: auto; margin: 16px 0 18px; padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .admin-tab-btn {
+    flex-shrink: 0; padding: 9px 14px; border: none; border-radius: 999px; background: var(--row-bg);
+    color: var(--muted); font-weight: 600; font-size: 12.5px; cursor: pointer; transition: all 0.15s;
+  }
+  .admin-tab-btn.active { background: linear-gradient(135deg, #7b2ff7, #4a00e0); color: #fff; }
+
+  .admin-window { display: none; text-align: left; }
+  .admin-window.active { display: block; }
+  .admin-window .section-title { margin-top: 0; }
   .admin-row {
     display: flex; align-items: center; justify-content: space-between;
-    background: #faf9fe; border: 1px solid #e2dbf5; border-radius: 10px;
+    background: var(--input-bg); border: 1px solid #e2dbf5; border-radius: 10px;
     padding: 9px 12px; margin-bottom: 6px; font-size: 13px;
   }
   .admin-row .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; }
@@ -198,14 +261,14 @@
   /* ---------- Bug report sidebar (public) ---------- */
   .bug-sidebar {
     position: fixed; top: 0; right: -420px; width: 400px; max-width: 92vw; height: 100vh;
-    background: #fff; border-left: 1px solid #ece6fb;
+    background: var(--card-bg); border-left: 1px solid var(--border);
     box-shadow: -20px 0 50px rgba(80,30,150,0.12); z-index: 900; transition: right 0.3s ease;
     display: flex; flex-direction: column;
   }
   .bug-sidebar.open { right: 0; }
 
   /* ---------- Subscription UI ---------- */
-  .subnav { display: flex; gap: 6px; margin-bottom: 20px; background: #f4f2fb; border-radius: 12px; padding: 4px; flex-wrap: wrap; }
+  .subnav { display: flex; gap: 6px; margin-bottom: 20px; background: var(--row-bg); border-radius: 12px; padding: 4px; flex-wrap: wrap; }
   .subnav button {
     flex: 1; min-width: 70px; padding: 9px 6px; border: none; border-radius: 9px; background: transparent;
     color: #8a80a8; font-weight: 600; font-size: 11px; cursor: pointer; transition: all 0.2s;
@@ -218,25 +281,25 @@
     display: inline-block; padding: 6px 16px; border-radius: 999px; font-size: 12px; font-weight: 700;
     margin-bottom: 16px; letter-spacing: 0.5px;
   }
-  .plan-badge.starter { background: #f4f2fb; color: #6f6789; border: 1px solid #e2dbf5; }
+  .plan-badge.starter { background: var(--row-bg); color: var(--muted); border: 1px solid #e2dbf5; }
   .plan-badge.lite { background: rgba(34, 197, 94, 0.12); color: #16a34a; border: 1px solid #22c55e; }
   .plan-badge.pro { background: rgba(123, 47, 247, 0.1); color: #6b21d0; border: 1px solid #9e5cff; }
 
   .pkg-card {
-    background: #faf9fe; border: 2px solid #e2dbf5; border-radius: 16px; padding: 18px; margin-bottom: 12px;
+    background: var(--input-bg); border: 2px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 12px;
     cursor: pointer; transition: 0.2s;
   }
   .pkg-card.selected { border-color: #9e5cff; background: rgba(123,47,247,0.06); }
-  .pkg-card .pkg-name { font-weight: 700; color: #241c3a; font-size: 15px; }
+  .pkg-card .pkg-name { font-weight: 700; color: var(--text); font-size: 15px; }
   .pkg-card .pkg-price { color: #7b2ff7; font-weight: 700; font-size: 18px; margin: 4px 0; }
-  .pkg-card .pkg-desc { color: #6f6789; font-size: 12.5px; line-height: 1.5; }
+  .pkg-card .pkg-desc { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
 
   .locked-cmd { color: #e0454a; font-size: 12px; }
-  .info-box { background: #faf9fe; border: 1px solid #e2dbf5; border-radius: 12px; padding: 14px 16px; font-size: 12.5px; color: #5b5478; margin-bottom: 12px; line-height: 1.6; }
+  .info-box { background: var(--input-bg); border: 1px solid #e2dbf5; border-radius: 12px; padding: 14px 16px; font-size: 12.5px; color: #5b5478; margin-bottom: 12px; line-height: 1.6; }
   .ussd-box { background: #fbf6ff; border: 1px solid #e6d6ff; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; }
   .ussd-box .ussd-title { color: #6b21d0; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
   .ussd-box ol { margin: 0 0 8px 18px; padding: 0; color: #4a4266; font-size: 13px; line-height: 1.9; }
-  .ussd-box .ussd-detail { display: flex; justify-content: space-between; background: #fff; border: 1px solid #ecdcff; border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
+  .ussd-box .ussd-detail { display: flex; justify-content: space-between; background: var(--card-bg); border: 1px solid #ecdcff; border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
   .ussd-box .ussd-detail b { color: #4a00e0; }
   .verify-btn-wa {
     display: block; text-align: center; width: 100%; padding: 15px 16px; border-radius: 14px;
@@ -246,8 +309,8 @@
   .verify-btn-wa:hover { transform: translateY(-2px); }
   .ref-link-box { display: flex; gap: 8px; margin-bottom: 10px; }
   .ref-link-box input { flex: 1; margin-bottom: 0; }
-  .stat-row { display: flex; justify-content: space-between; background: #faf9fe; border: 1px solid #e2dbf5; border-radius: 10px; padding: 11px 14px; margin-bottom: 8px; font-size: 13px; }
-  .stat-row b { color: #241c3a; }
+  .stat-row { display: flex; justify-content: space-between; background: var(--input-bg); border: 1px solid #e2dbf5; border-radius: 10px; padding: 11px 14px; margin-bottom: 8px; font-size: 13px; }
+  .stat-row b { color: var(--text); }
   .bug-sidebar-header {
     padding: 20px 22px; border-bottom: 1px solid #ece6fb; display: flex;
     align-items: center; justify-content: space-between;
@@ -258,7 +321,7 @@
   .bug-form textarea { min-height: 80px; resize: vertical; }
   .bug-list-title { font-size: 12px; color: #8a80a8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 700; }
   .bug-item {
-    background: #faf9fe; border: 1px solid #ece6fb; border-radius: 12px;
+    background: var(--input-bg); border: 1px solid var(--border); border-radius: 12px;
     padding: 12px 14px; margin-bottom: 10px;
   }
   .bug-item .bug-name { color: #6b21d0; font-weight: 700; font-size: 13px; }
@@ -270,19 +333,12 @@
   }
   .sidebar-overlay.show { display: block; }
 
-  @media (max-width: 900px) {
-    .side-menu { transform: translateX(-100%); }
-    .side-menu.open { transform: translateX(0); }
-    .main-wrap { margin-left: 0; }
-    .menu-toggle { display: flex; }
-  }
-
   @media (max-width: 640px) {
-    .topbar { padding: 12px 16px; }
     .topbar-title { font-size: 13px; }
     .card { padding: 28px 22px; }
     .hero h2 { font-size: 24px; }
     .layout { padding: 24px 16px 60px; }
+    .bottom-nav-btn { font-size: 9.5px; }
   }
 </style>
 </head>
@@ -309,16 +365,7 @@
   </nav>
 
   <div class="main-wrap">
-    <div class="topbar">
-      <div class="topbar-left">
-        <button class="menu-toggle" id="menu-toggle">☰</button>
-        <div class="topbar-title">Multi-Device WhatsApp Bot Dashboard</div>
-      </div>
-      <div class="topbar-actions">
-        <button class="pill-btn subscribe" id="topbar-subscribe-btn">💎 Subscribe</button>
-        <button class="pill-btn" id="report-bug-btn">🐞 Report Bug</button>
-      </div>
-    </div>
+    <div class="topbar-title">Multi-Device WhatsApp Bot Dashboard</div>
 
     <div class="hero">
       <h2>Link, Manage & Customize Your Bot</h2>
@@ -546,48 +593,89 @@
     </div>
   </div>
 
-  <!-- Admin dashboard -->
+  <!-- Admin dashboard: modular "windows" — one section visible at a time -->
   <div id="admin-dashboard" class="modal-overlay">
-    <div class="modal-box wide">
+    <div class="modal-box admin-shell">
       <div class="modal-header">
         <h2>🛠️ Admin Dashboard</h2>
-        <button class="link-btn" id="admin-close-btn">Close</button>
+        <button class="link-btn" id="admin-close-btn" style="width:auto;margin:0;">Close</button>
       </div>
 
-      <div class="section-title">Connected / Offline Sessions</div>
-      <div id="admin-sessions-list" class="admin-list"></div>
-
-      <div class="section-title">Ban / Unban Numbers</div>
-      <div class="inline-form">
-        <input type="text" id="ban-number-input" placeholder="e.g. 2557XXXXXXXX" />
-        <button class="action small" id="ban-btn">Ban</button>
+      <div class="admin-stats" id="admin-stats">
+        <div class="stat-card"><span class="stat-num" id="stat-sessions">–</span><span class="stat-label">Sessions</span></div>
+        <div class="stat-card"><span class="stat-num" id="stat-banned">–</span><span class="stat-label">Banned</span></div>
+        <div class="stat-card"><span class="stat-num" id="stat-tx">–</span><span class="stat-label">Pending Tx</span></div>
+        <div class="stat-card"><span class="stat-num" id="stat-vouchers">–</span><span class="stat-label">Active Vouchers</span></div>
       </div>
-      <div id="admin-banned-list" class="admin-list"></div>
 
-      <div class="section-title">Pending Subscription Transactions</div>
-      <div id="admin-tx-list" class="admin-list"></div>
-
-      <div class="section-title">Generate Voucher</div>
-      <div class="inline-form" style="margin-bottom:8px;">
-        <select id="voucher-plan-select" style="margin-bottom:0;">
-          <option value="lite">Lite</option>
-          <option value="pro">Pro</option>
-        </select>
-        <input type="number" id="voucher-days-input" placeholder="Days (e.g. 30)" style="margin-bottom:0;" />
-        <input type="number" id="voucher-uses-input" placeholder="Max uses (e.g. 1)" style="margin-bottom:0;" />
-        <button class="action small" id="voucher-generate-btn">Generate</button>
+      <div class="admin-tabs" id="admin-tabs">
+        <button class="admin-tab-btn active" data-admin-tab="sessions">🖥️ Sessions</button>
+        <button class="admin-tab-btn" data-admin-tab="banned">🚫 Banned</button>
+        <button class="admin-tab-btn" data-admin-tab="transactions">💳 Transactions</button>
+        <button class="admin-tab-btn" data-admin-tab="vouchers">🎟️ Vouchers</button>
+        <button class="admin-tab-btn" data-admin-tab="broadcast">📢 Broadcast</button>
       </div>
-      <div id="admin-voucher-list" class="admin-list"></div>
 
-      <div class="section-title">Send Notification to All Connected Owners</div>
-      <label for="notify-image">Image URL (optional)</label>
-      <input type="text" id="notify-image" placeholder="https://example.com/image.jpg" />
-      <label for="notify-message">Message</label>
-      <input type="text" id="notify-message" placeholder="Write your announcement..." />
-      <button class="action" id="notify-send-btn">Send Notification</button>
-      <div id="admin-notify-status"></div>
+      <!-- Window: Sessions -->
+      <div class="admin-window active" id="admin-window-sessions">
+        <div class="section-title">Connected / Offline Sessions</div>
+        <div id="admin-sessions-list" class="admin-list"></div>
+      </div>
+
+      <!-- Window: Banned numbers -->
+      <div class="admin-window" id="admin-window-banned">
+        <div class="section-title">Ban / Unban Numbers</div>
+        <div class="inline-form">
+          <input type="text" id="ban-number-input" placeholder="e.g. 2557XXXXXXXX" />
+          <button class="action small" id="ban-btn">Ban</button>
+        </div>
+        <div id="admin-banned-list" class="admin-list"></div>
+      </div>
+
+      <!-- Window: Transactions -->
+      <div class="admin-window" id="admin-window-transactions">
+        <div class="section-title">Pending Subscription Transactions</div>
+        <div id="admin-tx-list" class="admin-list"></div>
+      </div>
+
+      <!-- Window: Vouchers -->
+      <div class="admin-window" id="admin-window-vouchers">
+        <div class="section-title">Generate Voucher</div>
+        <label for="voucher-target-input">Recipient number (who this voucher is for)</label>
+        <input type="text" id="voucher-target-input" placeholder="e.g. 2557XXXXXXXX" />
+        <div class="inline-form" style="margin-bottom:8px;">
+          <select id="voucher-plan-select" style="margin-bottom:0;">
+            <option value="lite">Lite</option>
+            <option value="pro">Pro</option>
+          </select>
+          <input type="number" id="voucher-days-input" placeholder="Days (e.g. 30)" style="margin-bottom:0;" />
+          <button class="action small" id="voucher-generate-btn">Generate</button>
+        </div>
+        <div class="info-box">The code is shareable, but whoever redeems it first claims it exclusively — single use only.</div>
+        <div id="admin-voucher-list" class="admin-list"></div>
+      </div>
+
+      <!-- Window: Broadcast -->
+      <div class="admin-window" id="admin-window-broadcast">
+        <div class="section-title">Send Notification to All Connected Owners</div>
+        <label for="notify-image">Image URL (optional)</label>
+        <input type="text" id="notify-image" placeholder="https://example.com/image.jpg" />
+        <label for="notify-message">Message</label>
+        <input type="text" id="notify-message" placeholder="Write your announcement..." />
+        <button class="action" id="notify-send-btn">Send Notification</button>
+        <div id="admin-notify-status"></div>
+      </div>
     </div>
   </div>
+
+  <!-- Bottom nav bar (replaces the old top bar) -->
+  <nav class="bottom-nav">
+    <button class="bottom-nav-btn" id="menu-toggle"><span class="icon">☰</span>Menu</button>
+    <button class="bottom-nav-btn accent" id="topbar-subscribe-btn"><span class="icon">💎</span>Subscribe</button>
+    <button class="bottom-nav-btn" id="report-bug-btn"><span class="icon">🐞</span>Report</button>
+    <a href="#" class="bottom-nav-btn" id="bottom-admin-link"><span class="icon">🔐</span>Admin</a>
+    <button class="bottom-nav-btn" id="theme-toggle-btn"><span class="icon" id="theme-toggle-icon">🌙</span>Theme</button>
+  </nav>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>

@@ -2,6 +2,32 @@
 
 const socket = io();
 
+// ---------- Light / dark theme toggle ----------
+const THEME_KEY = "darkx_theme";
+const themeToggleBtn = document.getElementById("theme-toggle-btn");
+const themeToggleIcon = document.getElementById("theme-toggle-icon");
+
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+    if (themeToggleIcon) themeToggleIcon.textContent = "☀️";
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+    if (themeToggleIcon) themeToggleIcon.textContent = "🌙";
+  }
+}
+
+const savedTheme = localStorage.getItem(THEME_KEY) ||
+  (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+applyTheme(savedTheme);
+
+themeToggleBtn?.addEventListener("click", () => {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const next = isDark ? "light" : "dark";
+  applyTheme(next);
+  localStorage.setItem(THEME_KEY, next);
+});
+
 // ---------- Side menu (mobile toggle) ----------
 const sideMenu = document.getElementById("side-menu");
 const menuToggle = document.getElementById("menu-toggle");
@@ -502,13 +528,15 @@ const adminNotifyStatus = document.getElementById("admin-notify-status");
 
 let adminToken = null;
 
-adminLink.addEventListener("click", (e) => {
+function openAdminLogin(e) {
   e.preventDefault();
   adminPasswordInput.value = "";
   adminLoginError.textContent = "";
   adminModal.classList.add("show");
   closeSideMenu();
-});
+}
+adminLink.addEventListener("click", openAdminLogin);
+document.getElementById("bottom-admin-link")?.addEventListener("click", openAdminLogin);
 
 adminCancelBtn.addEventListener("click", () => adminModal.classList.remove("show"));
 
@@ -539,6 +567,19 @@ adminLoginBtn.addEventListener("click", async () => {
 
 adminCloseBtn.addEventListener("click", () => adminDashboard.classList.remove("show"));
 
+// ---------- Admin dashboard: tab / "window" switching ----------
+function switchAdminTab(name) {
+  document.querySelectorAll(".admin-tab-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.adminTab === name);
+  });
+  document.querySelectorAll(".admin-window").forEach((win) => {
+    win.classList.toggle("active", win.id === `admin-window-${name}`);
+  });
+}
+document.querySelectorAll(".admin-tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => switchAdminTab(btn.dataset.adminTab));
+});
+
 async function adminFetch(url, options = {}) {
   const res = await fetch(url, {
     ...options,
@@ -557,6 +598,7 @@ async function loadAdminSessions() {
   adminSessionsList.innerHTML = "Loading...";
   try {
     const { sessions } = await adminFetch("/api/admin/sessions");
+    document.getElementById("stat-sessions").textContent = sessions.length;
     if (!sessions.length) {
       adminSessionsList.innerHTML = `<div class="admin-row"><span>No sessions yet.</span></div>`;
       return;
@@ -593,6 +635,7 @@ async function loadAdminBanned() {
   adminBannedList.innerHTML = "Loading...";
   try {
     const { banned } = await adminFetch("/api/admin/banned");
+    document.getElementById("stat-banned").textContent = banned.length;
     if (!banned.length) {
       adminBannedList.innerHTML = `<div class="admin-row"><span>No banned numbers.</span></div>`;
       return;
@@ -629,6 +672,7 @@ async function loadAdminTransactions() {
   list.innerHTML = "Loading...";
   try {
     const { transactions } = await adminFetch("/api/admin/transactions?status=pending");
+    document.getElementById("stat-tx").textContent = transactions.length;
     if (!transactions.length) {
       list.innerHTML = `<div class="admin-row"><span>No pending transactions.</span></div>`;
       return;
@@ -680,18 +724,24 @@ async function loadAdminVouchers() {
   list.innerHTML = "Loading...";
   try {
     const { vouchers } = await adminFetch("/api/admin/vouchers");
+    document.getElementById("stat-vouchers").textContent = vouchers.filter((v) => v.active).length;
     if (!vouchers.length) {
       list.innerHTML = `<div class="admin-row"><span>No vouchers yet.</span></div>`;
       return;
     }
     list.innerHTML = vouchers
-      .map(
-        (v) => `
+      .map((v) => {
+        const status = v.claimedBy
+          ? `claimed by ${v.claimedBy}`
+          : v.active
+          ? "unclaimed"
+          : "inactive";
+        return `
         <div class="admin-row">
-          <span>🎟️ ${v._id} — ${v.plan.toUpperCase()} / ${v.durationDays}d — ${v.usedBy.length}/${v.maxUses} used ${!v.active ? "(inactive)" : ""}</span>
+          <span>🎟️ ${v._id} — ${v.plan.toUpperCase()} / ${v.durationDays}d<br/><small>For: ${v.targetNumber || "—"} · Status: ${status}</small></span>
           ${v.active ? `<button class="btn-danger" data-deactivate="${v._id}">Deactivate</button>` : ""}
-        </div>`
-      )
+        </div>`;
+      })
       .join("");
 
     list.querySelectorAll("[data-deactivate]").forEach((btn) => {
@@ -714,15 +764,20 @@ async function loadAdminVouchers() {
 document.getElementById("voucher-generate-btn").addEventListener("click", async () => {
   const plan = document.getElementById("voucher-plan-select").value;
   const durationDays = document.getElementById("voucher-days-input").value || 30;
-  const maxUses = document.getElementById("voucher-uses-input").value || 1;
+  const targetNumber = document.getElementById("voucher-target-input").value.trim();
   const btn = document.getElementById("voucher-generate-btn");
+  if (!targetNumber) {
+    alert("Please enter the recipient's number this voucher is being generated for.");
+    return;
+  }
   btn.disabled = true;
   try {
     const data = await adminFetch("/api/admin/vouchers", {
       method: "POST",
-      body: JSON.stringify({ plan, durationDays, maxUses }),
+      body: JSON.stringify({ plan, durationDays, targetNumber }),
     });
-    alert(`Voucher created: ${data.voucher._id}`);
+    alert(`Voucher created for ${targetNumber}: ${data.voucher._id}`);
+    document.getElementById("voucher-target-input").value = "";
     await loadAdminVouchers();
   } catch (err) {
     alert(err.message);

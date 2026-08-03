@@ -130,8 +130,8 @@ router.get('/vouchers', requireAdmin, async (req, res) => {
 
 router.post('/vouchers', requireAdmin, async (req, res) => {
     try {
-        const { plan, durationDays, maxUses } = req.body || {};
-        res.json({ ok: true, voucher: await vouchersLib.generate({ plan, durationDays, maxUses }) });
+        const { plan, durationDays, targetNumber } = req.body || {};
+        res.json({ ok: true, voucher: await vouchersLib.generate({ plan, durationDays, targetNumber }) });
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
