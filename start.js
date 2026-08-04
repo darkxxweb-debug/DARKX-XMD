@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Project: DarkX Ultra
+ * Project: DarkX Ultimate
  * Entry Point — boots the web pairing dashboard + socket.io,
  * then resumes every previously-paired session.
  */

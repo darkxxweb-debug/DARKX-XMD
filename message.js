@@ -129,6 +129,12 @@ module.exports = async (sock, m, chatUpdate) => {
 
         const reply = (teks) => sock.sendMessage(chat, { text: teks }, { quoted: m });
 
+        // --- Private Mode: bot only obeys its owner, everyone else is ignored ---
+        if (config.privateMode && !isOwner) {
+            if (isCmd) return reply(config.msg?.private || "🔒 This bot is in Private Mode.");
+            return;
+        }
+
         // --- Muted users: delete their messages in this group ---
         if (isGroup && global.db?.groups?.[chat]?.mutedUsers?.includes(sender) && !isOwner && !isAdmin) {
             if (isBotAdmin) await sock.sendMessage(chat, { delete: m.key }).catch(() => {});

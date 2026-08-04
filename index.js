@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Project: DarkX Ultra
+ * Project: DarkX Ultimate
  * Owner: MrX Dev
  *
  * Multi-device session engine.
@@ -19,8 +19,9 @@ const { smsg } = require('./library/serialize');
 const { getBotResponse } = require('./library/brain');
 const { getSettings } = require('./library/settingsStore');
 const { isBanned } = require('./library/adminStore');
-const { markSessionStarted, getStarterSessionDeadline } = require('./library/subscriptionStore');
+const { markSessionStarted, getStarterSessionDeadline, getAccount, PLANS } = require('./library/subscriptionStore');
 const { useMongoAuthState, removeMongoSession, mongoSessionExists, listMongoSessionIds } = require('./library/mongoAuthState');
+const { toBold, toSmallCaps } = require('./library/function');
 
 process.on('uncaughtException', (err) => {
     console.error(chalk.red('CRITICAL ERROR (Uncaught Exception):'), err);
@@ -113,6 +114,69 @@ function decodeJidFactory() {
 }
 
 /**
+ * Sends a stylish "bot connected" notification straight to the owner's
+ * own WhatsApp, the moment their session comes online. Uses unicode
+ * bold + small-caps for a "kali" (eye-catching) look with no external
+ * fonts — plain WhatsApp text renders it perfectly on every device.
+ */
+async function sendConnectedMessage(sock, sessionId, sessionSettings) {
+    try {
+        const ownerNumber = (sessionSettings.ownerNumber || sessionId).replace(/[^0-9]/g, '');
+        const ownerJid = ownerNumber + '@s.whatsapp.net';
+        const botName = sessionSettings.botName || config.botName;
+        const now = new Date();
+
+        const acc = await getAccount(sessionId).catch(() => null);
+        const planLabel = acc ? (PLANS[acc.plan]?.label || acc.plan).toUpperCase() : 'STARTER';
+
+        const text =
+            `『 ${toBold('DARKX ULTIMATE')} 』\n` +
+            `━━━━━━━━━━━━━━━━━━━\n` +
+            `✅ ${toBold('CONNECTED SUCCESSFULLY')}\n` +
+            `━━━━━━━━━━━━━━━━━━━\n` +
+            `👑 ${toSmallCaps('bot name')}   : ${botName}\n` +
+            `📱 ${toSmallCaps('number')}     : ${ownerNumber}\n` +
+            `💎 ${toSmallCaps('plan')}       : ${planLabel}\n` +
+            `📅 ${toSmallCaps('date')}       : ${now.toLocaleDateString()}\n` +
+            `⏰ ${toSmallCaps('time')}       : ${now.toLocaleTimeString()}\n` +
+            `━━━━━━━━━━━━━━━━━━━\n` +
+            `🔗 ${toSmallCaps('dashboard')} : ${config.repoUrl}\n` +
+            `━━━━━━━━━━━━━━━━━━━\n` +
+            `_${toBoldItalicSafe('Your bot is online and ready to work.')}_\n` +
+            `Powered by ${config.watermark} 🔥`;
+
+        await sock.sendMessage(ownerJid, {
+            text,
+            contextInfo: {
+                forwardingScore: 999,
+                isForwarded: true,
+                externalAdReply: {
+                    title: 'DARKX ULTIMATE 👑',
+                    body: 'Connected Successfully',
+                    thumbnailUrl: config.thumb,
+                    sourceUrl: config.repoUrl,
+                    mediaType: 1,
+                    renderLargerThumbnail: false,
+                },
+            },
+        });
+    } catch (err) {
+        console.error(chalk.red('Failed to send connected message:'), err.message);
+    }
+}
+
+// Small helper kept local so a missing toBoldItalic export never crashes
+// the connection handler.
+function toBoldItalicSafe(text) {
+    try {
+        const { toBoldItalic } = require('./library/function');
+        return toBoldItalic(text);
+    } catch {
+        return text;
+    }
+}
+
+/**
  * Starts (or resumes) a WhatsApp session for the given phone number.
  * @param {string} number  Phone number (digits only) used as the session id.
  * @param {object} io      socket.io server, used to relay pairing codes / status to the web UI (optional).
@@ -141,7 +205,7 @@ async function startBot(number, io, onPairingCode) {
         // Returning a fake message here (as before) causes Baileys to
         // resend that fake text every time WhatsApp issues a retry
         // receipt (undecryptable message on the recipient's side) —
-        // which is what was causing the repeated "DarkX-Ultra-Internal-Cache"
+        // which is what was causing the repeated "DarkX Ultimate-Internal-Cache"
         // spam messages. Returning undefined tells Baileys "message not
         // available", so it reports the retry as failed instead of
         // resending garbage content.
@@ -201,6 +265,10 @@ async function startBot(number, io, onPairingCode) {
             // time it connects. Paid plans / higher tiers are unaffected
             // (getStarterSessionDeadline returns null for them).
             markSessionStarted(sessionId).catch(() => {});
+
+            // 👑 Notify the owner on their own WhatsApp that the bot just
+            // came online — styled with stylish unicode fonts.
+            sendConnectedMessage(sock, sessionId, sessionSettings).catch(() => {});
         }
 
         if (connection === 'close') {
@@ -310,11 +378,11 @@ async function startBot(number, io, onPairingCode) {
             const pfx = settings.prefix || '.';
             if (body === `${pfx}aion` && isOwner) {
                 autoAi = true;
-                return await sock.sendMessage(m.chat, { text: '✅ *DarkX-Ultra AI:* Auto-Reply is now ON!' }, { quoted: m });
+                return await sock.sendMessage(m.chat, { text: '✅ *DarkX Ultimate AI:* Auto-Reply is now ON!' }, { quoted: m });
             }
             if (body === `${pfx}aioff` && isOwner) {
                 autoAi = false;
-                return await sock.sendMessage(m.chat, { text: '📴 *DarkX-Ultra AI:* Auto-Reply is now OFF!' }, { quoted: m });
+                return await sock.sendMessage(m.chat, { text: '📴 *DarkX Ultimate AI:* Auto-Reply is now OFF!' }, { quoted: m });
             }
 
             // --- AI REPLY ---
