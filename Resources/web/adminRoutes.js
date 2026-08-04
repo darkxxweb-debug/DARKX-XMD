@@ -12,6 +12,7 @@ const { getSettings } = require('../../library/settingsStore');
 const { isBanned, banNumber, unbanNumber, listBanned, adminLogin, isAdminToken } = require('../../library/adminStore');
 const transactions = require('../../library/transactionStore');
 const vouchersLib = require('../../library/voucherStore');
+const config = require('../../settings/config');
 
 const router = express.Router();
 
@@ -92,6 +93,36 @@ router.post('/notify', requireAdmin, async (req, res) => {
     }
 
     res.json({ ok: true, sent: results.filter((r) => r.ok).length, total: results.length, results });
+});
+
+// --- Channel Broadcast: post straight to the WhatsApp Channel whose JID
+// is shown in the bot's menu (config.channelJid). Uses the first
+// currently-connected session as the sender, since posting to a channel
+// requires an active, logged-in WhatsApp socket. ---
+router.post('/channel-send', requireAdmin, async (req, res) => {
+    const { message, imageUrl } = req.body || {};
+    if (!message || !message.trim()) {
+        return res.status(400).json({ error: 'Message text is required.' });
+    }
+
+    const sessionIds = Object.keys(activeSockets);
+    if (!sessionIds.length) {
+        return res.status(400).json({ error: 'No connected bot session is available to post from. Connect at least one number first.' });
+    }
+
+    const sock = activeSockets[sessionIds[0]];
+    const channelJid = config.channelJid;
+
+    try {
+        if (imageUrl && imageUrl.trim()) {
+            await sock.sendMessage(channelJid, { image: { url: imageUrl.trim() }, caption: message });
+        } else {
+            await sock.sendMessage(channelJid, { text: message });
+        }
+        res.json({ ok: true, channelJid, sentFrom: sessionIds[0] });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to post to channel: ' + err.message });
+    }
 });
 
 // --- Subscription transactions ---

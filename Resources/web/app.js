@@ -1,4 +1,4 @@
-// DarkX-Ultra - Web dashboard client logic (pairing + login/settings)
+// DarkX Ultimate - Web dashboard client logic (pairing + login/settings)
 
 const socket = io();
 
@@ -79,7 +79,7 @@ pairBtn.addEventListener("click", () => {
     return;
   }
   pairBtn.disabled = true;
-  statusEl.textContent = "✨ Connecting to DarkX-Ultra, please wait...";
+  statusEl.textContent = "✨ Connecting to DarkX Ultimate, please wait...";
   codeBox.style.display = "none";
   socket.emit("pair-request", number);
 });
@@ -446,6 +446,7 @@ async function loadSettings() {
   document.getElementById("s-prefix").value = s.prefix || ".";
   document.getElementById("s-statusEmojis").value = (s.statusEmojis || []).join(", ");
   document.getElementById("s-chatEmojis").value = (s.chatEmojis || []).join(", ");
+  document.getElementById("s-privateMode").checked = !!s.privateMode;
   document.getElementById("s-antilink").checked = !!s.antilink;
   document.getElementById("s-antidelete").checked = !!s.antidelete;
   document.getElementById("s-autoViewStatus").checked = !!s.autoViewStatus;
@@ -470,6 +471,7 @@ saveSettingsBtn.addEventListener("click", async () => {
     prefix: document.getElementById("s-prefix").value.trim() || ".",
     statusEmojis: document.getElementById("s-statusEmojis").value,
     chatEmojis: document.getElementById("s-chatEmojis").value,
+    privateMode: document.getElementById("s-privateMode").checked,
     antilink: document.getElementById("s-antilink").checked,
     antidelete: document.getElementById("s-antidelete").checked,
     autoViewStatus: document.getElementById("s-autoViewStatus").checked,
@@ -537,6 +539,11 @@ const notifyImageInput = document.getElementById("notify-image");
 const notifyMessageInput = document.getElementById("notify-message");
 const notifySendBtn = document.getElementById("notify-send-btn");
 const adminNotifyStatus = document.getElementById("admin-notify-status");
+
+const channelImageInput = document.getElementById("channel-image");
+const channelTextInput = document.getElementById("channel-text");
+const channelSendBtn = document.getElementById("channel-send-btn");
+const adminChannelStatus = document.getElementById("admin-channel-status");
 
 let adminToken = null;
 
@@ -619,7 +626,7 @@ async function loadAdminSessions() {
       .map(
         (s) => `
         <div class="admin-row">
-          <span><span class="dot ${s.connected ? "online" : "offline"}"></span>${s.number} — ${s.botName || "DarkX-Ultra"} ${s.connected ? "(Online)" : "(Offline)"}</span>
+          <span><span class="dot ${s.connected ? "online" : "offline"}"></span>${s.number} — ${s.botName || "DarkX Ultimate"} ${s.connected ? "(Online)" : "(Offline)"}</span>
           <button class="btn-danger" data-delete="${s.number}">Delete</button>
         </div>`
       )
@@ -835,6 +842,31 @@ notifySendBtn.addEventListener("click", async () => {
     adminNotifyStatus.textContent = `⚠️ ${err.message}`;
   } finally {
     notifySendBtn.disabled = false;
+  }
+});
+
+channelSendBtn.addEventListener("click", async () => {
+  const message = channelTextInput.value.trim();
+  const imageUrl = channelImageInput.value.trim();
+  if (!message) {
+    adminChannelStatus.textContent = "Please write a message first.";
+    return;
+  }
+
+  channelSendBtn.disabled = true;
+  adminChannelStatus.textContent = "Pushing to channel...";
+  try {
+    const data = await adminFetch("/api/admin/channel-send", {
+      method: "POST",
+      body: JSON.stringify({ message, imageUrl }),
+    });
+    adminChannelStatus.textContent = `✅ Posted to channel (via ${data.sentFrom}).`;
+    channelTextInput.value = "";
+    channelImageInput.value = "";
+  } catch (err) {
+    adminChannelStatus.textContent = `⚠️ ${err.message}`;
+  } finally {
+    channelSendBtn.disabled = false;
   }
 });
 

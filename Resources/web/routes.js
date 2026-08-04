@@ -57,7 +57,7 @@ router.post('/login/request', async (req, res) => {
     try {
         const code = createLoginCode(number);
         await sock.sendMessage(number + '@s.whatsapp.net', {
-            text: `🔐 *DarkX-Ultra Login*\n\nYour verification code is: *${code}*\nThis code expires in 5 minutes.\n\nIf you did not request this, you can ignore this message.`,
+            text: `🔐 *DarkX Ultimate Login*\n\nYour verification code is: *${code}*\nThis code expires in 5 minutes.\n\nIf you did not request this, you can ignore this message.`,
         });
         res.json({ ok: true, message: 'A verification code has been sent to your WhatsApp.' });
     } catch (err) {
