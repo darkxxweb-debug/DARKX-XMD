@@ -35,6 +35,7 @@ const DEFAULT_OVERRIDES = () => ({
     autoTyping: config.autoTyping,
     autoRecording: config.autoRecording,
     watermark: config.watermark,
+    privateMode: config.privateMode,
 
     // --- Optional per-user MongoDB (media storage) ---
     // Left empty by default -> shared bot DB is used, which is text-only
@@ -87,12 +88,12 @@ function getSettings(number) {
  * Updates settings for a number. Only known/allowed fields are merged in,
  * so the settings panel can't be used to inject arbitrary data.
  */
-// NOTE: 'watermark' is intentionally NOT editable — it always stays "DarkX-Ultra".
+// NOTE: 'watermark' is intentionally NOT editable — it always stays "DarkX Ultimate".
 const ALLOWED_FIELDS = [
     'ownerNumber', 'ownerName', 'botName', 'prefix', 'statusEmojis', 'chatEmojis',
     'antilink', 'antidelete', 'antideleteNotifyOwner',
     'autoViewStatus', 'autoReactStatus', 'autoReadChat', 'autoReactChat',
-    'autoTyping', 'autoRecording',
+    'autoTyping', 'autoRecording', 'privateMode',
     'mongoUrl', 'autoViewOnce', 'autoSaveStatus',
 ];
 

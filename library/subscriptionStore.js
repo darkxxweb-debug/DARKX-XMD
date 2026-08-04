@@ -7,6 +7,8 @@
  * "accounts") so it survives restarts/redeploys on Render.
  */
 
+const fs = require("fs");
+const path = require("path");
 const { getDb } = require("./mongo");
 
 const PLANS = {
@@ -15,16 +17,49 @@ const PLANS = {
     pro: { label: "Pro", price: 3000, days: 30, maxBots: 3 },
 };
 
-// Starter (free) plan: only these commands work. Everything else shows
-// the "please subscribe" message.
-const STARTER_COMMANDS = ["ping", "repo", "quran", "list", "yts"];
+// ─────────────────────────────────────────────────────────────────────
+// Plan → command access is now driven directly by each plugin's
+// `category` field (see /plugins/*.js), instead of a hand-maintained
+// list. This keeps the menu and the actual enforcement (message.js)
+// perfectly in sync — whatever the menu shows unlocked is exactly
+// what will run.
+//
+//   • STARTER (free) → only "info"-category commands (+ the menu
+//     itself), so new users can look around before subscribing.
+//   • LITE             → everything EXCEPT "tools" and "download"/
+//     "downloader" category commands.
+//   • PRO               → everything, no restriction (null).
+// ─────────────────────────────────────────────────────────────────────
+const PLUGIN_DIR = path.join(__dirname, "..", "plugins");
+const INFO_CATEGORIES = ["info"];
+const TOOLS_DOWNLOAD_CATEGORIES = ["tools", "download", "downloader"];
+const ALWAYS_ALLOWED_CATEGORIES = ["main"]; // the menu/help command itself, on every plan
 
-// Lite plan unlocks these on top of the starter set (hand-picked mix).
-const LITE_EXTRA_COMMANDS = [
-    "sticker", "toimg", "toaudio", "tovideo", "qc", "attp",
-    "igdl", "igdl2", "fb", "video", "movie", "weather",
-    "tagall", "hidetag", "poll", "groupinfo", "welcome", "goodbye",
-];
+function loadPluginMeta() {
+    const list = [];
+    let files = [];
+    try {
+        files = fs.readdirSync(PLUGIN_DIR).filter((f) => f.endsWith(".js"));
+    } catch {
+        return list;
+    }
+    for (const file of files) {
+        try {
+            const fullPath = path.join(PLUGIN_DIR, file);
+            delete require.cache[require.resolve(fullPath)];
+            const plugin = require(fullPath);
+            if (!plugin.command) continue;
+            const names = Array.isArray(plugin.command) ? plugin.command : [plugin.command];
+            const category = String(plugin.category || "").toLowerCase().trim();
+            for (const name of names) {
+                list.push({ name: String(name).toLowerCase(), category });
+            }
+        } catch {
+            continue;
+        }
+    }
+    return list;
+}
 
 const STARTER_SESSION_HOURS = 5;
 
@@ -145,8 +180,19 @@ async function applyPurchaseBonuses(buyerNumber, plan, amount) {
 
 function allowedCommands(plan) {
     if (plan === "pro") return null; // null = no restriction, everything allowed
-    if (plan === "lite") return [...STARTER_COMMANDS, ...LITE_EXTRA_COMMANDS];
-    return STARTER_COMMANDS;
+
+    const meta = loadPluginMeta();
+
+    if (plan === "lite") {
+        return meta
+            .filter((p) => !TOOLS_DOWNLOAD_CATEGORIES.includes(p.category))
+            .map((p) => p.name);
+    }
+
+    // starter: info-category commands + the menu itself
+    return meta
+        .filter((p) => INFO_CATEGORIES.includes(p.category) || ALWAYS_ALLOWED_CATEGORIES.includes(p.category))
+        .map((p) => p.name);
 }
 
 function isCommandAllowed(plan, command) {
@@ -189,8 +235,6 @@ async function addLinkedBot(number, botNumber) {
 
 module.exports = {
     PLANS,
-    STARTER_COMMANDS,
-    LITE_EXTRA_COMMANDS,
     getAccount,
     setPlan,
     addBonusDays,

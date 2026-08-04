@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Project: DarkX Ultra
+ * Project: DarkX Ultimate
  * Owner: MrX Dev
  * Engineer: Senior Node.js WhatsApp Bot Engineer
  * Universal Utility Functions for Media and Data Handling
@@ -111,6 +111,49 @@ const downloadMediaMessage = async (message) => {
     return buffer;
 };
 
+/**
+ * Converts plain ASCII text into 𝗨𝗻𝗶𝗰𝗼𝗱𝗲 𝗕𝗼𝗹𝗱 (mathematical bold)
+ * characters, for a "kali" (fancy/eye-catching) look in menus, headers,
+ * and system messages — no external fonts needed, works in plain WA text.
+ */
+const toBold = (text = '') => {
+    const upperBase = 0x1D400; // Mathematical Bold Capital A
+    const lowerBase = 0x1D41A; // Mathematical Bold Small a
+    const digitBase = 0x1D7CE; // Mathematical Bold Digit 0
+    return String(text).replace(/[A-Za-z0-9]/g, (ch) => {
+        if (ch >= 'A' && ch <= 'Z') return String.fromCodePoint(upperBase + (ch.charCodeAt(0) - 65));
+        if (ch >= 'a' && ch <= 'z') return String.fromCodePoint(lowerBase + (ch.charCodeAt(0) - 97));
+        if (ch >= '0' && ch <= '9') return String.fromCodePoint(digitBase + (ch.charCodeAt(0) - 48));
+        return ch;
+    });
+};
+
+/**
+ * Converts plain ASCII text into 𝑰𝒕𝒂𝒍𝒊𝒄 𝑩𝒐𝒍𝒅 unicode characters, used
+ * for secondary/subtitle-style fancy text.
+ */
+const toBoldItalic = (text = '') => {
+    const upperBase = 0x1D468;
+    const lowerBase = 0x1D482;
+    return String(text).replace(/[A-Za-z]/g, (ch) => {
+        if (ch >= 'A' && ch <= 'Z') return String.fromCodePoint(upperBase + (ch.charCodeAt(0) - 65));
+        if (ch >= 'a' && ch <= 'z') return String.fromCodePoint(lowerBase + (ch.charCodeAt(0) - 97));
+        return ch;
+    });
+};
+
+/**
+ * Converts plain ASCII text into sᴍᴀʟʟ ᴄᴀᴘꜱ unicode characters, used for
+ * clean, compact section labels.
+ */
+const SMALL_CAPS_MAP = {
+    a: 'ᴀ', b: 'ʙ', c: 'ᴄ', d: 'ᴅ', e: 'ᴇ', f: 'ꜰ', g: 'ɢ', h: 'ʜ', i: 'ɪ',
+    j: 'ᴊ', k: 'ᴋ', l: 'ʟ', m: 'ᴍ', n: 'ɴ', o: 'ᴏ', p: 'ᴘ', q: 'ǫ', r: 'ʀ',
+    s: 'ꜱ', t: 'ᴛ', u: 'ᴜ', v: 'ᴠ', w: 'ᴡ', x: 'x', y: 'ʏ', z: 'ᴢ',
+};
+const toSmallCaps = (text = '') =>
+    String(text).toLowerCase().replace(/[a-z]/g, (ch) => SMALL_CAPS_MAP[ch] || ch);
+
 module.exports = {
     getBuffer,
     formatSize,
@@ -119,5 +162,8 @@ module.exports = {
     sleep,
     parseMention,
     runtime,
-    downloadMediaMessage
+    downloadMediaMessage,
+    toBold,
+    toBoldItalic,
+    toSmallCaps
 };

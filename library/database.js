@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Project: DarkX Ultra
+ * Project: DarkX Ultimate
  * Owner: MrX Dev
  * Engineer: Senior Node.js WhatsApp Bot Engineer
  * Lightweight JSON Database System

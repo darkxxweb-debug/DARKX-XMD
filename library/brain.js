@@ -1,5 +1,5 @@
 /**
- * DarkX-Ultra AI - Simple keyword-based auto-reply brain used by the
+ * DarkX Ultimate AI - Simple keyword-based auto-reply brain used by the
  * .aion / .aioff auto-reply feature.
  */
 
@@ -13,7 +13,7 @@ const knowledgeBase = [
 *║      ＤΛＲＫＸ   ΛＩ      ║*
 *╚════════════════════╝*
 
-Greetings! I'm *DarkX-Ultra AI*.
+Greetings! I'm *DarkX Ultimate AI*.
 
 I'm here to help you find the right digital solution. Whether you need a powerful *WhatsApp Bot* or a modern *Website*, you're in the right place.
 
@@ -44,7 +44,7 @@ Type *.list* now to see our packages.`
 *🌐 〔 ＤΞＶΞＬＯＰＭΞＮＴ 〕 🌐*
 
 We build digital bridges! Your website is your online office.
-DarkX-Ultra gives you:
+DarkX Ultimate gives you:
 
 ⚡ *Responsive Design* (Mobile & PC)
 🛠️ *Full Backend Support*
@@ -98,7 +98,7 @@ Sorry, I didn't recognize that. If you'd like to see our *Bots* and *Website* se
 
 👉 *${config.prefix}list*
 
-_DarkX-Ultra v${config.version}_`;
+_DarkX Ultimate v${config.version}_`;
 };
 
 module.exports = { getBotResponse };
