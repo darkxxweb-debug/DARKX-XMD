@@ -23,7 +23,7 @@ module.exports = {
 
             // 🔔 NEWSLETTER INFO (FOR FORWARDED LOOK)
             const newsletterJid = "120363427307889741@newsletter";
-            const newsletterName = "DARKX-ULTRA";
+            const newsletterName = "DARKX ULTIMATE";
 
             // MEDIA
             const imagePath = path.resolve(__dirname, "../media/repo.jpg");

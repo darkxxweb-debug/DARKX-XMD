@@ -3,14 +3,14 @@ const path = require("path");
 
 module.exports = {
     command: ["repo", "script", "sc"],
-    category: "INFO",
+    category: "info",
 
     execute: async (sock, m, { reply, config }) => {
         try {
             const imagePath = path.join(__dirname, "../media/repo.jpg");
             const audioPath = path.join(__dirname, "../media/repo.mp3");
 
-            const repoLink = "https://github.com/darkx-pro/DarkX-Ultra.git";
+            const repoLink = config.repoUrl || "https://darkx-ultimate.onrender.com";
             const ownerNumber = config.ownerNumber;
             const ownerName = config.ownerName;
             const botName = `${config.botName} 👑`;
@@ -29,11 +29,11 @@ module.exports = {
             }
 
             const caption = `
-*╭━━━〔 👑 DARKX ULTRA SYSTEM 👑 〕━━━⬣*
+*╭━━━〔 👑 D A R K X   U L T I M A T E 👑 〕━━━⬣*
 *┃ ⚡ BOT NAME:* ${botName}
 *┃ 👑 OWNER:* ${ownerName}
 *┃ 📞 NUMBER:* wa.me/${ownerNumber}
-*┃ 🌐 VERSION:* v2.0.2
+*┃ 🌐 VERSION:* v3.0.0
 *┃ 🚀 STATUS:* ONLINE
 *┃ 🧠 ENGINE:* Smart Auto Response
 *┃ 🔥 TYPE:* WhatsApp Assistant Bot
@@ -52,12 +52,12 @@ module.exports = {
 *┃ ⬡ Clean Performance*
 *╰━━━━━━━━━━━━━━━━━━⬣*
 
-*╭━━━〔 📂 REPOSITORY 📂 〕━━━⬣*
-*┃ 🔗 GitHub Script:*
+*╭━━━〔 📂 CONTROL PANEL 📂 〕━━━⬣*
+*┃ 🔗 Web / Dashboard:*
 ${repoLink}
 *╰━━━━━━━━━━━━━━━━━━⬣*
 
-> _Powerful • Fast • Clean • DarkX Official_ 🔥
+> _Powerful • Fast • Clean • DarkX Ultimate Lab_ 🔥
 `;
 
             // SEND IMAGE + INFO
@@ -71,8 +71,8 @@ ${repoLink}
                         forwardingScore: 999,
                         isForwarded: true,
                         externalAdReply: {
-                            title: "DARKX-ULTRA 👑",
-                            body: "Official Repository & Bot Info",
+                            title: "DARKX ULTIMATE 👑",
+                            body: "Official Dashboard & Bot Info",
                             mediaType: 1,
                             thumbnail: imageBuffer || undefined,
                             sourceUrl: repoLink,

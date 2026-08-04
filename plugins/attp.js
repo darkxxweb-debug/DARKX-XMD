@@ -31,8 +31,8 @@ module.exports = {
             const buffer = await image.getBufferAsync(Jimp.MIME_PNG);
 
             const sticker = new Sticker(buffer, {
-                pack: config.botName || "DarkX-Ultra",
-                author: config.ownerName || "DarkX-Ultra",
+                pack: config.botName || "DarkX Ultimate",
+                author: config.ownerName || "DarkX Ultimate",
                 type: StickerTypes.FULL,
                 quality: 90,
             });

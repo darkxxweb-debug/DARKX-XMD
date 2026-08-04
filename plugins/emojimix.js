@@ -15,8 +15,8 @@ module.exports = {
             const res = await axios.get(url, { responseType: "arraybuffer" });
 
             const sticker = new Sticker(Buffer.from(res.data), {
-                pack: config.botName || "DarkX-Ultra",
-                author: config.ownerName || "DarkX-Ultra",
+                pack: config.botName || "DarkX Ultimate",
+                author: config.ownerName || "DarkX Ultimate",
                 type: StickerTypes.FULL,
                 quality: 90,
             });

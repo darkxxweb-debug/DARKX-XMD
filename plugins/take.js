@@ -15,8 +15,8 @@ module.exports = {
 
         try {
             const sticker = new Sticker(media.buffer, {
-                pack: pack || config.botName || "DarkX-Ultra",
-                author: author || config.ownerName || "DarkX-Ultra",
+                pack: pack || config.botName || "DarkX Ultimate",
+                author: author || config.ownerName || "DarkX Ultimate",
                 type: StickerTypes.FULL,
                 quality: 70,
             });

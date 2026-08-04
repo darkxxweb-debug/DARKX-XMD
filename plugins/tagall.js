@@ -7,7 +7,7 @@ module.exports = {
     execute: async (sock, m, { participants, text, reply }) => {
         try {
             // Optional extra message (e.g. .tagall Wake up!)
-            let messageText = `🔊 *TAG ALL — DarkX-Ultra*\n\n`;
+            let messageText = `🔊 *TAG ALL — DarkX Ultimate*\n\n`;
             messageText += `*Message:* ${text ? text : 'No message provided'}\n\n`;
 
             // Kutengeneza list ya ma-tag

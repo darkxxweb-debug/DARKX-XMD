@@ -32,7 +32,7 @@ _Reply with the number to view more info_
 ⒌ ➜ 𝖶𝖾𝖻 𝖢𝗋𝖾𝖺𝗍𝗂𝗈𝗇 𝖬𝖺𝗌𝗍𝖾𝗋𝖼𝗅𝖺𝗌𝗌
 
 > *“Innovation is our language, Excellence is our standard.”*
-_Powered by DarkX Ultra v6.0.0_`;
+_Powered by DarkX Ultimate v6.0.0_`;
 
                 let msgOptions = { 
                     image: fs.existsSync(imagePath) ? fs.readFileSync(imagePath) : { url: "https://files.catbox.moe/pc5uec.png" },

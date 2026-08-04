@@ -13,7 +13,7 @@ module.exports = {
 
         try {
             const png = await sharp(media.buffer).png().toBuffer();
-            await sock.sendMessage(m.chat, { image: png, caption: "✅ Converted by DarkX-Ultra" }, { quoted: m });
+            await sock.sendMessage(m.chat, { image: png, caption: "✅ Converted by DarkX Ultimate" }, { quoted: m });
         } catch (e) {
             reply("❌ Failed to convert. Animated stickers should use *.tovid* instead.");
         }

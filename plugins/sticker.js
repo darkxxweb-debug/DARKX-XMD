@@ -18,8 +18,8 @@ module.exports = {
             await sock.sendMessage(m.chat, { react: { text: "🎨", key: m.key } });
 
             const sticker = new Sticker(media.buffer, {
-                pack: config.botName || "DarkX-Ultra",
-                author: config.ownerName || "DarkX-Ultra",
+                pack: config.botName || "DarkX Ultimate",
+                author: config.ownerName || "DarkX Ultimate",
                 type: StickerTypes.FULL,
                 quality: 70,
             });

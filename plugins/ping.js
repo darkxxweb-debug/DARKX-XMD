@@ -2,6 +2,7 @@ const { performance } = require('perf_hooks');
 
 module.exports = {
     command: ['ping'],
+    category: 'info',
     execute: async (sock, m, { reply }) => {
         const start = performance.now();
         const { key } = await reply("Testing speed...");

@@ -14,7 +14,7 @@ module.exports = {
         try {
             await sock.sendMessage(m.chat, { react: { text: "🎞️", key: m.key } });
             const mp4 = await convertBuffer(media.buffer, "webp", "mp4", ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]);
-            await sock.sendMessage(m.chat, { video: mp4, caption: "✅ Converted by DarkX-Ultra", gifPlayback: command === "togif" }, { quoted: m });
+            await sock.sendMessage(m.chat, { video: mp4, caption: "✅ Converted by DarkX Ultimate", gifPlayback: command === "togif" }, { quoted: m });
         } catch (e) {
             console.error("tovideo error:", e);
             reply("❌ Failed to convert. Make sure it's an animated sticker.");

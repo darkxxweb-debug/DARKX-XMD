@@ -22,7 +22,7 @@ module.exports = {
                 return reply('❌ No results found.');
             }
 
-            let searchText = `✨ *DARKX-ULTRA YT SEARCH* ✨\n\n`;
+            let searchText = `✨ *DARKX ULTIMATE YT SEARCH* ✨\n\n`;
             videos.forEach((v, index) => {
                 searchText += `*${index + 1}. 🎧 ${v.title}*\n`;
                 searchText += `*⌚ Duration:* ${v.timestamp}\n`;
