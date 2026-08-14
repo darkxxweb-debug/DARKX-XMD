@@ -61,7 +61,7 @@ module.exports = {
             const plan = account.plan || "starter";
             const allowed = allowedCommands(plan); // null = pro (kila kitu wazi)
 
-            const newsletterJid = "120363427307889741@newsletter";
+            const newsletterJid = "120363412629669812@newsletter";
             const newsletterName = "DARKX ULTIMATE";
 
             const imagePath = path.resolve(__dirname, "../media/repo.jpg");
