@@ -1,39 +1,119 @@
 "use strict";
 
 /**
- * Subscription engine: plans, per-plan command access, per-account bot
- * connection limits, starter session time limit (+ referral bonus hours),
- * and referral bookkeeping. Everything lives in MongoDB (collection
- * "accounts") so it survives restarts/redeploys on Render.
+ * Subscription engine v2.
+ *
+ * Pricing model:
+ *   - FREE FOREVER, for everyone, no plan needed: auto-view-status and
+ *     auto-typing (these are plain settings toggles handled in index.js
+ *     and were never gated here -- nothing to do for them in this file).
+ *   - Every other command must be unlocked, in one of two ways:
+ *       1. A time-limited PLAN (weekly or monthly) unlocks ALL commands
+ *          for the duration of the plan only ("limited" -- access ends
+ *          when the plan expires).
+ *       2. A one-off COMMAND PACK purchase (default: 5 commands for a
+ *          flat price) permanently unlocks exactly the commands the
+ *          user picked -- "unlimited" in the sense it never expires,
+ *          but it only covers those specific commands.
+ *   - An admin PROMO ("offer") can also grant temporary full access to
+ *     one number or to everyone, independent of plan/commands -- used
+ *     for giveaways / campaigns.
+ *   - Prices (weekly, monthly, command-pack) and the command-pack size
+ *     are admin-editable at runtime (see getPricing/setPricing) so the
+ *     admin can set custom pricing later without a code change.
+ *
+ * Everything lives in MongoDB (collection "accounts", plus a single
+ * "pricing" config document) so it survives restarts/redeploys.
  */
 
 const fs = require("fs");
 const path = require("path");
 const { getDb } = require("./mongo");
 
+// Static plan metadata (label / duration / bot-connection limit).
+// Prices are NOT here -- they live in the admin-editable pricing doc,
+// see getPricing()/setPricing() below.
 const PLANS = {
-    starter: { label: "Starter", price: 0, days: null, maxBots: 1 },
-    lite: { label: "Lite", price: 1000, days: 30, maxBots: 1 },
-    pro: { label: "Pro", price: 3000, days: 30, maxBots: 3 },
+    starter: { label: "Starter", days: null, maxBots: 1 },
+    weekly: { label: "Weekly", days: 7, maxBots: 1 },
+    monthly: { label: "Monthly", days: 30, maxBots: 3 },
 };
 
-// ─────────────────────────────────────────────────────────────────────
-// Plan → command access is now driven directly by each plugin's
-// `category` field (see /plugins/*.js), instead of a hand-maintained
-// list. This keeps the menu and the actual enforcement (message.js)
-// perfectly in sync — whatever the menu shows unlocked is exactly
-// what will run.
-//
-//   • STARTER (free) → only "info"-category commands (+ the menu
-//     itself), so new users can look around before subscribing.
-//   • LITE             → everything EXCEPT "tools" and "download"/
-//     "downloader" category commands.
-//   • PRO               → everything, no restriction (null).
-// ─────────────────────────────────────────────────────────────────────
+const DEFAULT_PRICING = {
+    weeklyPrice: 1000,
+    monthlyPrice: 3000,
+    commandPackPrice: 500,
+    commandPackSize: 5,
+};
+
 const PLUGIN_DIR = path.join(__dirname, "..", "plugins");
-const INFO_CATEGORIES = ["info"];
-const TOOLS_DOWNLOAD_CATEGORIES = ["tools", "download", "downloader"];
-const ALWAYS_ALLOWED_CATEGORIES = ["main"]; // the menu/help command itself, on every plan
+// Commands in this category are always free for everyone (the menu/help
+// command itself), regardless of plan, purchases, or promo status.
+const ALWAYS_ALLOWED_CATEGORIES = ["main"];
+
+const STARTER_SESSION_HOURS = 5;
+
+function normalize(number) {
+    return String(number || "").replace(/[^0-9]/g, "");
+}
+
+async function col() {
+    const db = await getDb();
+    return db.collection("accounts");
+}
+
+async function pricingCol() {
+    const db = await getDb();
+    return db.collection("pricing");
+}
+
+// -----------------------------------------------------------------------
+// Pricing (admin-editable)
+// -----------------------------------------------------------------------
+
+async function getPricing() {
+    const c = await pricingCol();
+    let doc = await c.findOne({ _id: "config" });
+    if (!doc) {
+        doc = { _id: "config", ...DEFAULT_PRICING };
+        await c.insertOne(doc);
+    }
+    // Backfill any field that might be missing (e.g. after an upgrade).
+    return { ...DEFAULT_PRICING, ...doc };
+}
+
+/** Admin-only: update one or more prices / the command-pack size. Any
+ * field left out keeps its current value. */
+async function setPricing(update) {
+    const current = await getPricing();
+    const next = { ...current };
+
+    for (const key of ["weeklyPrice", "monthlyPrice", "commandPackPrice", "commandPackSize"]) {
+        if (update[key] === undefined || update[key] === null || update[key] === "") continue;
+        const n = Number(update[key]);
+        if (!Number.isFinite(n) || n < 0) throw new Error(`Invalid value for ${key}.`);
+        next[key] = key === "commandPackSize" ? Math.max(1, Math.round(n)) : Math.round(n);
+    }
+
+    const c = await pricingCol();
+    await c.updateOne({ _id: "config" }, { $set: next }, { upsert: true });
+    return getPricing();
+}
+
+/** Convenience: PLANS merged with live prices, for display purposes
+ * (web UI, menu.js labels, etc). */
+async function getPlansWithPricing() {
+    const pricing = await getPricing();
+    return {
+        starter: { ...PLANS.starter, price: 0 },
+        weekly: { ...PLANS.weekly, price: pricing.weeklyPrice },
+        monthly: { ...PLANS.monthly, price: pricing.monthlyPrice },
+    };
+}
+
+// -----------------------------------------------------------------------
+// Plugin metadata (which commands exist, and their category)
+// -----------------------------------------------------------------------
 
 function loadPluginMeta() {
     const list = [];
@@ -61,22 +141,24 @@ function loadPluginMeta() {
     return list;
 }
 
-const STARTER_SESSION_HOURS = 5;
-
-function normalize(number) {
-    return String(number || "").replace(/[^0-9]/g, "");
+/** Commands a user is allowed to individually purchase (everything
+ * except the always-free "main"/menu category). Used to render the
+ * command picker in the Subscribe UI and to validate purchase requests. */
+function listPurchasableCommands() {
+    return loadPluginMeta().filter((p) => !ALWAYS_ALLOWED_CATEGORIES.includes(p.category));
 }
 
-async function col() {
-    const db = await getDb();
-    return db.collection("accounts");
-}
+// -----------------------------------------------------------------------
+// Accounts
+// -----------------------------------------------------------------------
 
 function defaultAccount(id) {
     return {
         _id: id,
         plan: "starter",
         planExpiresAt: null,
+        purchasedCommands: [], // individually-bought commands -- permanent, never expire
+        promoExpiresAt: null, // admin-granted temporary full access (offers/campaigns)
         linkedBots: [],
         referredBy: null,
         freeBonusHours: 0,
@@ -95,6 +177,15 @@ async function getAccount(number) {
         acc = defaultAccount(id);
         await c.insertOne(acc);
     }
+    // Backfill fields for accounts created before v2.
+    if (acc.purchasedCommands === undefined || acc.promoExpiresAt === undefined) {
+        acc.purchasedCommands = acc.purchasedCommands || [];
+        acc.promoExpiresAt = acc.promoExpiresAt || null;
+        await c.updateOne(
+            { _id: id },
+            { $set: { purchasedCommands: acc.purchasedCommands, promoExpiresAt: acc.promoExpiresAt } }
+        );
+    }
     // Auto-downgrade if a paid plan expired
     if (acc.plan !== "starter" && acc.planExpiresAt && new Date(acc.planExpiresAt) < new Date()) {
         acc.plan = "starter";
@@ -104,16 +195,20 @@ async function getAccount(number) {
     return acc;
 }
 
-/** Sets/extends a paid plan for `number`, adding `days` from now (or from
- * the current expiry if it hasn't lapsed yet, so renewals stack). */
+/** Sets/extends a paid plan for `number` ("weekly" or "monthly"), adding
+ * that plan's fixed duration from now (or from the current expiry if it
+ * hasn't lapsed yet, so renewals stack). */
 async function setPlan(number, plan, days) {
     const id = normalize(number);
     const c = await col();
     const acc = await getAccount(id);
+    const duration = days != null ? Number(days) : PLANS[plan]?.days;
+    if (!duration) throw new Error("Invalid plan.");
+
     const base = acc.plan === plan && acc.planExpiresAt && new Date(acc.planExpiresAt) > new Date()
         ? new Date(acc.planExpiresAt)
         : new Date();
-    const expires = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+    const expires = new Date(base.getTime() + duration * 24 * 60 * 60 * 1000);
     await c.updateOne({ _id: id }, { $set: { plan, planExpiresAt: expires, updatedAt: new Date() } });
     return getAccount(id);
 }
@@ -157,48 +252,122 @@ async function recordReferralSignup(refNumber, newNumber) {
     return getAccount(id);
 }
 
-/** Called after an admin approves a paid transaction. Applies the buyer's
- * own 3% bonus, then — if the buyer was referred — the referrer's 50%-of-
- * amount bonus (converted to bonus days). */
+/** Called after an admin approves a paid PLAN transaction. Applies the
+ * buyer's own 3% bonus, then -- if the buyer was referred -- the referrer's
+ * 50%-of-amount bonus (converted to bonus days). */
 async function applyPurchaseBonuses(buyerNumber, plan, amount) {
     const buyer = normalize(buyerNumber);
     const info = PLANS[plan];
-    if (!info) return;
+    if (!info || !info.days) return;
 
     const buyerBonusDays = Math.max(1, Math.round(info.days * 0.03));
     await setPlan(buyer, plan, info.days + buyerBonusDays);
 
     const acc = await getAccount(buyer);
     if (acc.referredBy) {
-        const pricePerDay = info.price / info.days;
-        const referrerBonusDays = Math.max(1, Math.round((amount / 2) / pricePerDay));
+        const pricePerDay = amount / info.days;
+        const referrerBonusDays = pricePerDay > 0 ? Math.max(1, Math.round((amount / 2) / pricePerDay)) : 1;
         await addBonusDays(acc.referredBy, referrerBonusDays);
         const c = await col();
         await c.updateOne({ _id: acc.referredBy }, { $inc: { "referralStats.paidBonusDaysEarned": referrerBonusDays } });
     }
 }
 
-function allowedCommands(plan) {
-    if (plan === "pro") return null; // null = no restriction, everything allowed
+/** Called after an admin approves a COMMAND PACK transaction. Permanently
+ * unlocks the chosen commands for that number (never expires). */
+async function purchaseCommands(number, commands) {
+    const id = normalize(number);
+    const pricing = await getPricing();
+    const valid = new Set(listPurchasableCommands().map((p) => p.name));
+    const chosen = Array.from(new Set((commands || []).map((c) => String(c).toLowerCase().trim())))
+        .filter((c) => valid.has(c));
 
-    const meta = loadPluginMeta();
-
-    if (plan === "lite") {
-        return meta
-            .filter((p) => !TOOLS_DOWNLOAD_CATEGORIES.includes(p.category))
-            .map((p) => p.name);
+    if (!chosen.length) throw new Error("No valid commands were selected.");
+    if (chosen.length > pricing.commandPackSize) {
+        throw new Error(`You can only pick up to ${pricing.commandPackSize} commands per pack.`);
     }
 
-    // starter: info-category commands + the menu itself
-    return meta
-        .filter((p) => INFO_CATEGORIES.includes(p.category) || ALWAYS_ALLOWED_CATEGORIES.includes(p.category))
-        .map((p) => p.name);
+    const c = await col();
+    await c.updateOne(
+        { _id: id },
+        { $addToSet: { purchasedCommands: { $each: chosen } }, $set: { updatedAt: new Date() } }
+    );
+    return getAccount(id);
 }
 
-function isCommandAllowed(plan, command) {
-    const list = allowedCommands(plan);
-    if (list === null) return true;
-    return list.includes(String(command || "").toLowerCase());
+// -----------------------------------------------------------------------
+// Admin promo / offers -- grant temporary full command access
+// -----------------------------------------------------------------------
+
+/** Extends (or starts) an account's promo window by `days`, stacking on
+ * top of any still-active promo. */
+async function grantPromoDays(number, days) {
+    const id = normalize(number);
+    const c = await col();
+    const acc = await getAccount(id);
+    const base = acc.promoExpiresAt && new Date(acc.promoExpiresAt) > new Date()
+        ? new Date(acc.promoExpiresAt)
+        : new Date();
+    const expires = new Date(base.getTime() + Number(days) * 24 * 60 * 60 * 1000);
+    await c.updateOne({ _id: id }, { $set: { promoExpiresAt: expires, updatedAt: new Date() } });
+    return expires;
+}
+
+/** Admin "offer" action: grant `days` of full access to a single number,
+ * or to every known account when `target` is "all". Returns how many
+ * accounts were affected. */
+async function addPromoOffer(target, days) {
+    const numDays = Number(days);
+    if (!numDays || numDays <= 0) throw new Error("Please provide a valid number of days.");
+
+    if (String(target).toLowerCase() === "all") {
+        const c = await col();
+        const ids = await c.find({}, { projection: { _id: 1 } }).toArray();
+        for (const { _id } of ids) {
+            await grantPromoDays(_id, numDays);
+        }
+        return { count: ids.length };
+    }
+
+    const id = normalize(target);
+    if (!id) throw new Error("Please provide a valid number.");
+    await grantPromoDays(id, numDays);
+    return { count: 1 };
+}
+
+// -----------------------------------------------------------------------
+// Access checks
+// -----------------------------------------------------------------------
+
+function hasFullAccess(account) {
+    const now = new Date();
+    if (account.promoExpiresAt && new Date(account.promoExpiresAt) > now) return true;
+    if (account.plan !== "starter" && account.planExpiresAt && new Date(account.planExpiresAt) > now) return true;
+    return false;
+}
+
+/** Returns null when the account has full access (unlimited); otherwise
+ * the list of commands it may run (always-free "main" commands + any
+ * individually purchased commands). */
+function allowedCommands(account) {
+    const meta = loadPluginMeta();
+    const freeAlways = meta
+        .filter((p) => ALWAYS_ALLOWED_CATEGORIES.includes(p.category))
+        .map((p) => p.name);
+
+    if (hasFullAccess(account)) return null;
+
+    return Array.from(new Set([...freeAlways, ...(account.purchasedCommands || [])]));
+}
+
+function isCommandAllowed(account, command) {
+    const cmd = String(command || "").toLowerCase();
+    const meta = loadPluginMeta();
+    const info = meta.find((p) => p.name === cmd);
+    if (info && ALWAYS_ALLOWED_CATEGORIES.includes(info.category)) return true;
+
+    if (hasFullAccess(account)) return true;
+    return (account.purchasedCommands || []).includes(cmd);
 }
 
 /** Marks the moment a starter-plan session connects, so we can enforce the
@@ -235,12 +404,19 @@ async function addLinkedBot(number, botNumber) {
 
 module.exports = {
     PLANS,
+    getPricing,
+    setPricing,
+    getPlansWithPricing,
+    listPurchasableCommands,
     getAccount,
     setPlan,
     addBonusDays,
     addBonusHours,
     recordReferralSignup,
     applyPurchaseBonuses,
+    purchaseCommands,
+    addPromoOffer,
+    hasFullAccess,
     allowedCommands,
     isCommandAllowed,
     markSessionStarted,

@@ -18,7 +18,7 @@ function generateCode() {
 }
 
 async function generate({ plan, durationDays, targetNumber }) {
-    if (!PLANS[plan] || plan === "starter") throw new Error("Voucher must grant lite or pro.");
+    if (!PLANS[plan] || plan === "starter") throw new Error("Voucher must grant a weekly or monthly plan.");
     const target = normalize(targetNumber);
     if (!target) throw new Error("A recipient number is required to generate a voucher.");
 
