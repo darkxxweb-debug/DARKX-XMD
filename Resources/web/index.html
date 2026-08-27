@@ -288,8 +288,8 @@
     margin-bottom: 14px; letter-spacing: 0.4px;
   }
   .plan-badge.starter { background: var(--surface-alt); color: var(--muted); border: 1px solid var(--border); }
-  .plan-badge.lite { background: var(--money-soft); color: var(--money); border: 1px solid var(--money); }
-  .plan-badge.pro { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
+  .plan-badge.weekly { background: var(--money-soft); color: var(--money); border: 1px solid var(--money); }
+  .plan-badge.monthly { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
 
   .pkg-card {
     background: var(--surface-alt); border: 1.5px solid var(--border); border-radius: 15px; padding: 16px; margin-bottom: 10px;
@@ -301,6 +301,17 @@
   .pkg-card .pkg-desc { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
   .locked-cmd { color: var(--danger); font-size: 12px; }
+
+  #commands-list { max-height: 260px; overflow-y: auto; margin-bottom: 14px; }
+  .cmd-check-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 6px; cursor: pointer;
+  }
+  .cmd-check-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); flex-shrink: 0; }
+  .cmd-check-row .cmd-name { font-size: 12.5px; color: var(--text); font-weight: 600; text-transform: lowercase; }
+  .cmd-check-row .cmd-cat { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; margin-left: auto; flex-shrink: 0; }
+  .cmd-check-row.disabled { opacity: 0.4; cursor: not-allowed; }
   .info-box { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.6; }
   .ussd-box { background: var(--money-soft); border: 1px solid var(--money); border-radius: 14px; padding: 15px 16px; margin-bottom: 14px; }
   .ussd-box .ussd-title { color: var(--money); font-weight: 800; font-size: 12.5px; margin-bottom: 8px; }
@@ -597,18 +608,35 @@
 
       <div id="sub-status-box" class="info-box">Loading your subscription status...</div>
 
-      <div class="pkg-card" data-plan="lite" id="pkg-lite">
-        <div class="pkg-name">Lite — 1,000 TSH / month</div>
-        <div class="pkg-price">1,000 TSH</div>
-        <div class="pkg-desc">Unlocks extra commands (stickers, downloaders, group tools) + full settings customization panel.</div>
+      <div class="info-box" style="margin-bottom:14px;">🆓 Auto View Status and Auto Typing are free forever — no plan needed. Every other command needs one of the options below.</div>
+
+      <div class="section-title">Full-Access Plans</div>
+      <div class="pkg-card" data-plan="weekly" id="pkg-weekly">
+        <div class="pkg-name">Weekly</div>
+        <div class="pkg-price"><span id="price-weekly-amount">…</span> TSH</div>
+        <div class="pkg-desc">Every command unlocked for 7 days.</div>
       </div>
-      <div class="pkg-card" data-plan="pro" id="pkg-pro">
-        <div class="pkg-name">Pro — 3,000 TSH / month</div>
-        <div class="pkg-price">3,000 TSH</div>
-        <div class="pkg-desc">Full access to every command + connect up to 2 extra bots from this same panel.</div>
+      <div class="pkg-card" data-plan="monthly" id="pkg-monthly">
+        <div class="pkg-name">Monthly</div>
+        <div class="pkg-price"><span id="price-monthly-amount">…</span> TSH</div>
+        <div class="pkg-desc">Every command unlocked for 30 days + connect up to 2 extra bots.</div>
+      </div>
+
+      <div class="section-title">Or Buy Specific Commands</div>
+      <div class="pkg-card" data-plan="commands" id="pkg-commands">
+        <div class="pkg-name">Command Pack</div>
+        <div class="pkg-price"><span id="price-pack-amount">…</span> TSH</div>
+        <div class="pkg-desc">Pick up to <span id="pack-size-label">5</span> commands yourself — unlocked forever, no expiry, no monthly renewal.</div>
+      </div>
+
+      <div id="commands-picker" style="display:none;">
+        <div class="section-title">Choose up to <span id="pack-size-label-2">5</span> commands (<span id="commands-selected-count">0</span> selected)</div>
+        <div id="commands-list" class="admin-list"></div>
+        <button class="action" id="commands-continue-btn" disabled>Continue to Payment</button>
       </div>
 
       <div id="pay-step" style="display:none;">
+        <div id="pay-summary" class="info-box" style="font-weight:700;color:var(--text);"></div>
         <div class="section-title">How to Pay (USSD)</div>
         <div class="ussd-box">
           <div class="ussd-title">Send money via USSD</div>

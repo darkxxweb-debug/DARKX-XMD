@@ -21,17 +21,33 @@ router.get("/status", requireLogin, async (req, res) => {
     try {
         const acc = await sub.getAccount(req.number);
         const deadline = await sub.getStarterSessionDeadline(req.number);
+        const plans = await sub.getPlansWithPricing();
         res.json({
             plan: acc.plan,
-            planLabel: sub.PLANS[acc.plan].label,
+            planLabel: plans[acc.plan].label,
             planExpiresAt: acc.planExpiresAt,
-            allowedCommands: sub.allowedCommands(acc.plan), // null = unlimited
+            fullAccess: sub.hasFullAccess(acc),
+            promoExpiresAt: acc.promoExpiresAt,
+            purchasedCommands: acc.purchasedCommands || [],
+            allowedCommands: sub.allowedCommands(acc), // null = unlimited (full access)
             starterSessionDeadline: deadline,
-            maxBots: sub.PLANS[acc.plan].maxBots,
+            maxBots: plans[acc.plan].maxBots,
             linkedBots: acc.linkedBots || [],
             referralCode: acc._id,
             referralStats: acc.referralStats,
         });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Pricing + purchasable command catalog — used to render the Subscribe
+// screen (weekly/monthly cards + the "pick 5 commands" picker).
+router.get("/pricing", requireLogin, async (req, res) => {
+    try {
+        const pricing = await sub.getPricing();
+        const commands = sub.listPurchasableCommands();
+        res.json({ pricing, commands });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -51,8 +67,21 @@ router.post("/set-referrer", requireLogin, async (req, res) => {
 router.post("/subscribe/request", requireLogin, async (req, res) => {
     try {
         const { plan, transactionRef, payerNumber } = req.body || {};
-        const tx = await transactions.createRequest(req.number, plan, transactionRef, payerNumber);
+        const tx = await transactions.createPlanRequest(req.number, plan, transactionRef, payerNumber);
         res.json({ ok: true, message: "Your payment request was submitted. Please wait for admin verification.", transaction: tx });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Buy a one-off command pack: user picks up to `commandPackSize` commands,
+// pays `commandPackPrice`, and — once admin approves the transaction —
+// those commands are permanently unlocked (no expiry).
+router.post("/commands/request", requireLogin, async (req, res) => {
+    try {
+        const { commands, transactionRef, payerNumber } = req.body || {};
+        const tx = await transactions.createCommandsRequest(req.number, commands, transactionRef, payerNumber);
+        res.json({ ok: true, message: "Your command pack request was submitted. Please wait for admin verification.", transaction: tx });
     } catch (err) {
         res.status(400).json({ error: err.message });
     }

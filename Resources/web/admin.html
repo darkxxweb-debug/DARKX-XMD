@@ -232,6 +232,8 @@
         <button class="sidebar-link" data-admin-tab="banned"><span class="ic">🚫</span>Banned Numbers</button>
         <button class="sidebar-link" data-admin-tab="transactions"><span class="ic">💳</span>Transactions</button>
         <button class="sidebar-link" data-admin-tab="vouchers"><span class="ic">🎟️</span>Vouchers</button>
+        <button class="sidebar-link" data-admin-tab="pricing"><span class="ic">💰</span>Pricing</button>
+        <button class="sidebar-link" data-admin-tab="offers"><span class="ic">🎁</span>Offers</button>
         <button class="sidebar-link" data-admin-tab="broadcast"><span class="ic">📢</span>Broadcast</button>
         <button class="sidebar-link" data-admin-tab="channel"><span class="ic">📡</span>Channel Post</button>
       </nav>
@@ -304,8 +306,8 @@
               <div>
                 <label for="voucher-plan-select">Plan</label>
                 <select id="voucher-plan-select">
-                  <option value="lite">Lite</option>
-                  <option value="pro">Pro</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
                 </select>
               </div>
               <div>
@@ -319,6 +321,63 @@
           <div class="content-card">
             <h3>All vouchers</h3>
             <div id="admin-voucher-list" class="admin-list"></div>
+          </div>
+        </div>
+
+        <!-- Window: Pricing -->
+        <div class="admin-window" id="admin-window-pricing">
+          <div class="content-card">
+            <h3>Plan &amp; command pack pricing</h3>
+            <div class="info-box">These prices apply immediately across the whole site — the Subscribe screen always shows the current values below.</div>
+            <div class="form-grid">
+              <div>
+                <label for="price-weekly">Weekly plan (TSH) — full access, 7 days</label>
+                <input type="number" id="price-weekly" placeholder="e.g. 1000" />
+              </div>
+              <div>
+                <label for="price-monthly">Monthly plan (TSH) — full access, 30 days</label>
+                <input type="number" id="price-monthly" placeholder="e.g. 3000" />
+              </div>
+            </div>
+            <div class="form-grid">
+              <div>
+                <label for="price-pack">Command pack price (TSH)</label>
+                <input type="number" id="price-pack" placeholder="e.g. 500" />
+              </div>
+              <div>
+                <label for="price-pack-size">Commands per pack</label>
+                <input type="number" id="price-pack-size" placeholder="e.g. 5" />
+              </div>
+            </div>
+            <button class="action" id="pricing-save-btn">Save Pricing</button>
+            <div id="admin-pricing-status" style="font-size:12.5px;color:var(--muted);margin-top:8px;min-height:16px;"></div>
+          </div>
+        </div>
+
+        <!-- Window: Offers / Promos -->
+        <div class="admin-window" id="admin-window-offers">
+          <div class="content-card">
+            <h3>Grant a promo offer</h3>
+            <div class="info-box">Gives full command access (like an active plan) for a limited number of days — to one number, or to everyone at once. Stacks on top of any offer that's still running.</div>
+            <div class="form-grid">
+              <div>
+                <label for="offer-target-select">Give to</label>
+                <select id="offer-target-select">
+                  <option value="all">Everyone</option>
+                  <option value="number">A specific number</option>
+                </select>
+              </div>
+              <div>
+                <label for="offer-days-input">Days</label>
+                <input type="number" id="offer-days-input" placeholder="e.g. 1" />
+              </div>
+            </div>
+            <div id="offer-number-row">
+              <label for="offer-number-input">Number</label>
+              <input type="text" id="offer-number-input" placeholder="e.g. 2557XXXXXXXX" />
+            </div>
+            <button class="action money" id="offer-send-btn">Send Offer</button>
+            <div id="admin-offer-status" style="font-size:12.5px;color:var(--muted);margin-top:8px;min-height:16px;"></div>
           </div>
         </div>
 

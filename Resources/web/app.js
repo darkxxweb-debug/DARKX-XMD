@@ -298,11 +298,19 @@ async function loadSubscriptionStatus() {
     planBadge.textContent = data.planLabel.toUpperCase();
     planBadge.className = `plan-badge ${data.plan}`;
 
-    if (data.plan === "starter") {
-      subStatusBox.textContent = "You're on the free Starter plan — limited commands (.ping, .repo, .quran, .list, .yts) and 5-hour sessions. Subscribe below to unlock more.";
+    const purchased = data.purchasedCommands || [];
+    const purchasedLine = purchased.length
+      ? ` You've also individually unlocked: ${purchased.join(", ")}.`
+      : "";
+
+    if (data.promoExpiresAt && new Date(data.promoExpiresAt) > new Date()) {
+      const until = new Date(data.promoExpiresAt).toLocaleString();
+      subStatusBox.textContent = `🎁 You have a promo offer active — every command is unlocked until ${until}.`;
+    } else if (data.plan === "starter") {
+      subStatusBox.textContent = `You're on the free Starter plan — Auto View Status and Auto Typing are free forever. Everything else needs a plan or a command pack below.${purchasedLine}`;
     } else {
       const expires = data.planExpiresAt ? new Date(data.planExpiresAt).toLocaleDateString() : "—";
-      subStatusBox.textContent = `You're on the ${data.planLabel} plan. Renews/expires: ${expires}.`;
+      subStatusBox.textContent = `You're on the ${data.planLabel} plan — every command is unlocked. Expires: ${expires}.${purchasedLine}`;
     }
 
     refLinkInput.value = `${window.location.origin}/?ref=${data.referralCode}`;
@@ -319,6 +327,83 @@ document.getElementById("ref-copy-btn").addEventListener("click", () => {
   document.execCommand("copy");
 });
 
+// ---------- Live pricing + purchasable command catalog ----------
+let currentPricing = null;
+let purchasableCommands = [];
+let commandsPickerLoaded = false;
+
+async function loadPricingAndCatalog() {
+  try {
+    const res = await fetch("/api/subscription/pricing", {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not load pricing.");
+
+    currentPricing = data.pricing;
+    purchasableCommands = data.commands || [];
+
+    document.getElementById("price-weekly-amount").textContent = currentPricing.weeklyPrice.toLocaleString();
+    document.getElementById("price-monthly-amount").textContent = currentPricing.monthlyPrice.toLocaleString();
+    document.getElementById("price-pack-amount").textContent = currentPricing.commandPackPrice.toLocaleString();
+    document.getElementById("pack-size-label").textContent = currentPricing.commandPackSize;
+    document.getElementById("pack-size-label-2").textContent = currentPricing.commandPackSize;
+
+    renderCommandsPicker();
+  } catch (err) {
+    console.error("Pricing load failed:", err.message);
+  }
+}
+
+function renderCommandsPicker() {
+  const list = document.getElementById("commands-list");
+  if (!purchasableCommands.length) {
+    list.innerHTML = `<div style="font-size:12.5px;color:var(--muted);">No purchasable commands found.</div>`;
+    return;
+  }
+  const sorted = [...purchasableCommands].sort((a, b) => a.name.localeCompare(b.name));
+  list.innerHTML = sorted
+    .map(
+      (cmd) => `
+      <label class="cmd-check-row" data-cmd="${cmd.name}">
+        <input type="checkbox" value="${cmd.name}" />
+        <span class="cmd-name">.${cmd.name}</span>
+        <span class="cmd-cat">${cmd.category || "other"}</span>
+      </label>`
+    )
+    .join("");
+
+  list.querySelectorAll('input[type="checkbox"]').forEach((box) => {
+    box.addEventListener("change", onCommandCheckChange);
+  });
+  commandsPickerLoaded = true;
+}
+
+function onCommandCheckChange() {
+  const list = document.getElementById("commands-list");
+  const checked = list.querySelectorAll('input[type="checkbox"]:checked');
+  const max = currentPricing?.commandPackSize || 5;
+
+  if (checked.length > max) {
+    this.checked = false;
+    return;
+  }
+
+  document.getElementById("commands-selected-count").textContent = checked.length;
+
+  const atMax = checked.length >= max;
+  list.querySelectorAll('input[type="checkbox"]').forEach((box) => {
+    box.disabled = atMax && !box.checked;
+    box.closest(".cmd-check-row").classList.toggle("disabled", box.disabled);
+  });
+
+  document.getElementById("commands-continue-btn").disabled = checked.length === 0;
+}
+
+function getSelectedCommands() {
+  return Array.from(document.querySelectorAll('#commands-list input[type="checkbox"]:checked')).map((b) => b.value);
+}
+
 // ---------- Subscription modal (its own window) ----------
 const subscribeModal = document.getElementById("subscribe-modal");
 const subscribeCloseBtn = document.getElementById("subscribe-close-btn");
@@ -333,9 +418,11 @@ function openSubscribeModal() {
     return;
   }
   if (payPhoneInput && !payPhoneInput.value) payPhoneInput.value = sessionNumber || "";
+  resetPurchaseSelection();
   updateWhatsappVerifyLink();
   subscribeModal.classList.add("show");
   loadSubscriptionStatus();
+  loadPricingAndCatalog();
   closeSideMenu();
 }
 function closeSubscribeModal() {
@@ -353,28 +440,77 @@ subscribeModal.addEventListener("click", (e) => {
 function updateWhatsappVerifyLink() {
   const phone = (payPhoneInput?.value || sessionNumber || "").trim();
   const txref = document.getElementById("pay-txref")?.value.trim() || "";
-  const planLabel = selectedPlan ? selectedPlan.toUpperCase() : "";
+  let packageLabel = "";
+  if (selectedPurchaseType === "plan" && selectedPlan) {
+    packageLabel = selectedPlan.toUpperCase();
+  } else if (selectedPurchaseType === "commands") {
+    const chosen = getSelectedCommands();
+    packageLabel = chosen.length ? `Command Pack (${chosen.join(", ")})` : "Command Pack";
+  }
   let msg = "Nimelipia ila sijapokea package.";
-  if (planLabel) msg += ` Package: ${planLabel}.`;
+  if (packageLabel) msg += ` Package: ${packageLabel}.`;
   if (phone) msg += ` Namba yangu: ${phone}.`;
   if (txref) msg += ` Muamala: ${txref}.`;
   verifyWhatsappBtn.href = `https://wa.me/${WHATSAPP_ADMIN_NUMBER}?text=${encodeURIComponent(msg)}`;
 }
 
 // ---------- Package selection + payment submission ----------
-let selectedPlan = null;
+let selectedPlan = null; // "weekly" | "monthly" — set when buying a full-access plan
+let selectedPurchaseType = null; // "plan" | "commands"
 const payStep = document.getElementById("pay-step");
+const commandsPicker = document.getElementById("commands-picker");
+const paySummary = document.getElementById("pay-summary");
 const subscribeStatus = document.getElementById("subscribe-status");
 
-["pkg-lite", "pkg-pro"].forEach((id) => {
+function resetPurchaseSelection() {
+  selectedPlan = null;
+  selectedPurchaseType = null;
+  document.querySelectorAll(".pkg-card").forEach((c) => c.classList.remove("selected"));
+  payStep.style.display = "none";
+  commandsPicker.style.display = "none";
+  subscribeStatus.textContent = "";
+  document.querySelectorAll('#commands-list input[type="checkbox"]').forEach((b) => (b.checked = false));
+  document.getElementById("commands-selected-count").textContent = "0";
+  document.getElementById("commands-continue-btn").disabled = true;
+}
+
+function showPayStepForPlan(plan) {
+  selectedPurchaseType = "plan";
+  selectedPlan = plan;
+  const price = plan === "weekly" ? currentPricing?.weeklyPrice : currentPricing?.monthlyPrice;
+  const days = plan === "weekly" ? 7 : 30;
+  paySummary.textContent = `You're paying for: ${plan === "weekly" ? "Weekly" : "Monthly"} Plan — ${price?.toLocaleString() ?? ""} TSH (${days} days, every command unlocked)`;
+  commandsPicker.style.display = "none";
+  payStep.style.display = "block";
+  if (payPhoneInput && !payPhoneInput.value) payPhoneInput.value = sessionNumber || "";
+  updateWhatsappVerifyLink();
+}
+
+["pkg-weekly", "pkg-monthly"].forEach((id) => {
   document.getElementById(id).addEventListener("click", () => {
     document.querySelectorAll(".pkg-card").forEach((c) => c.classList.remove("selected"));
     document.getElementById(id).classList.add("selected");
-    selectedPlan = id === "pkg-lite" ? "lite" : "pro";
-    payStep.style.display = "block";
-    if (payPhoneInput && !payPhoneInput.value) payPhoneInput.value = sessionNumber || "";
-    updateWhatsappVerifyLink();
+    showPayStepForPlan(id === "pkg-weekly" ? "weekly" : "monthly");
   });
+});
+
+document.getElementById("pkg-commands").addEventListener("click", () => {
+  document.querySelectorAll(".pkg-card").forEach((c) => c.classList.remove("selected"));
+  document.getElementById("pkg-commands").classList.add("selected");
+  selectedPurchaseType = "commands";
+  selectedPlan = null;
+  payStep.style.display = "none";
+  commandsPicker.style.display = "block";
+  if (!commandsPickerLoaded) renderCommandsPicker();
+});
+
+document.getElementById("commands-continue-btn").addEventListener("click", () => {
+  const chosen = getSelectedCommands();
+  if (!chosen.length) return;
+  paySummary.textContent = `You're paying for: Command Pack — ${currentPricing?.commandPackPrice?.toLocaleString() ?? ""} TSH (unlocks: ${chosen.join(", ")} — forever, no expiry)`;
+  payStep.style.display = "block";
+  if (payPhoneInput && !payPhoneInput.value) payPhoneInput.value = sessionNumber || "";
+  updateWhatsappVerifyLink();
 });
 
 document.getElementById("pay-txref").addEventListener("input", updateWhatsappVerifyLink);
@@ -383,7 +519,7 @@ if (payPhoneInput) payPhoneInput.addEventListener("input", updateWhatsappVerifyL
 document.getElementById("pay-submit-btn").addEventListener("click", async () => {
   const payerNumber = payPhoneInput.value.trim();
   const transactionRef = document.getElementById("pay-txref").value.trim();
-  if (!selectedPlan) return;
+  if (!selectedPurchaseType) return;
   if (!payerNumber) {
     subscribeStatus.textContent = "Please enter the phone number you paid from.";
     return;
@@ -395,10 +531,16 @@ document.getElementById("pay-submit-btn").addEventListener("click", async () => 
 
   subscribeStatus.textContent = "Submitting...";
   try {
-    const res = await fetch("/api/subscription/subscribe/request", {
+    const isCommands = selectedPurchaseType === "commands";
+    const url = isCommands ? "/api/subscription/commands/request" : "/api/subscription/subscribe/request";
+    const body = isCommands
+      ? { commands: getSelectedCommands(), transactionRef, payerNumber }
+      : { plan: selectedPlan, transactionRef, payerNumber };
+
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
-      body: JSON.stringify({ plan: selectedPlan, transactionRef, payerNumber }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to submit request.");

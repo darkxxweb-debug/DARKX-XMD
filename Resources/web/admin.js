@@ -56,7 +56,7 @@ let adminToken = sessionStorage.getItem(ADMIN_TOKEN_KEY);
 function showDashboard() {
   loginScreen.classList.add("hidden");
   adminApp.classList.add("show");
-  Promise.all([loadAdminSessions(), loadAdminBanned(), loadAdminTransactions(), loadAdminVouchers()]);
+  Promise.all([loadAdminSessions(), loadAdminBanned(), loadAdminTransactions(), loadAdminVouchers(), loadPricing()]);
 }
 function showLogin() {
   adminApp.classList.remove("show");
@@ -125,6 +125,8 @@ const pageMeta = {
   banned: ["Banned Numbers", "Numbers blocked from using the bot"],
   transactions: ["Transactions", "Pending subscription payments awaiting review"],
   vouchers: ["Vouchers", "Generate and manage subscription vouchers"],
+  pricing: ["Pricing", "Set the price of plans and command packs"],
+  offers: ["Offers", "Grant bonus days of full access as a promo"],
   broadcast: ["Broadcast", "Send a notification to every connected owner"],
   channel: ["Channel Post", "Publish a message to the WhatsApp channel"],
 };
@@ -397,6 +399,94 @@ notifySendBtn.addEventListener("click", async () => {
     adminNotifyStatus.textContent = `⚠️ ${err.message}`;
   } finally {
     notifySendBtn.disabled = false;
+  }
+});
+
+// ---------- Pricing ----------
+const priceWeeklyInput = document.getElementById("price-weekly");
+const priceMonthlyInput = document.getElementById("price-monthly");
+const pricePackInput = document.getElementById("price-pack");
+const pricePackSizeInput = document.getElementById("price-pack-size");
+const pricingSaveBtn = document.getElementById("pricing-save-btn");
+const adminPricingStatus = document.getElementById("admin-pricing-status");
+
+async function loadPricing() {
+  try {
+    const { pricing } = await adminFetch("/api/admin/pricing");
+    priceWeeklyInput.value = pricing.weeklyPrice;
+    priceMonthlyInput.value = pricing.monthlyPrice;
+    pricePackInput.value = pricing.commandPackPrice;
+    pricePackSizeInput.value = pricing.commandPackSize;
+  } catch (err) {
+    adminPricingStatus.textContent = `⚠️ ${err.message}`;
+  }
+}
+
+pricingSaveBtn.addEventListener("click", async () => {
+  pricingSaveBtn.disabled = true;
+  adminPricingStatus.textContent = "Saving...";
+  try {
+    await adminFetch("/api/admin/pricing", {
+      method: "POST",
+      body: JSON.stringify({
+        weeklyPrice: priceWeeklyInput.value,
+        monthlyPrice: priceMonthlyInput.value,
+        commandPackPrice: pricePackInput.value,
+        commandPackSize: pricePackSizeInput.value,
+      }),
+    });
+    adminPricingStatus.textContent = "✅ Pricing updated — live on the site now.";
+  } catch (err) {
+    adminPricingStatus.textContent = `⚠️ ${err.message}`;
+  } finally {
+    pricingSaveBtn.disabled = false;
+  }
+});
+
+// ---------- Offers / Promos ----------
+const offerTargetSelect = document.getElementById("offer-target-select");
+const offerNumberRow = document.getElementById("offer-number-row");
+const offerNumberInput = document.getElementById("offer-number-input");
+const offerDaysInput = document.getElementById("offer-days-input");
+const offerSendBtn = document.getElementById("offer-send-btn");
+const adminOfferStatus = document.getElementById("admin-offer-status");
+
+function syncOfferTargetRow() {
+  offerNumberRow.style.display = offerTargetSelect.value === "number" ? "block" : "none";
+}
+offerTargetSelect.addEventListener("change", syncOfferTargetRow);
+syncOfferTargetRow();
+
+offerSendBtn.addEventListener("click", async () => {
+  const days = offerDaysInput.value;
+  const isAll = offerTargetSelect.value === "all";
+  const target = isAll ? "all" : offerNumberInput.value.trim();
+
+  if (!days || Number(days) <= 0) {
+    adminOfferStatus.textContent = "Please enter how many days to grant.";
+    return;
+  }
+  if (!isAll && !target) {
+    adminOfferStatus.textContent = "Please enter the recipient's number.";
+    return;
+  }
+
+  offerSendBtn.disabled = true;
+  adminOfferStatus.textContent = "Sending offer...";
+  try {
+    const data = await adminFetch("/api/admin/offer", {
+      method: "POST",
+      body: JSON.stringify({ target, days }),
+    });
+    adminOfferStatus.textContent = isAll
+      ? `✅ Granted ${days} bonus day(s) of full access to all ${data.count} account(s).`
+      : `✅ Granted ${days} bonus day(s) of full access to ${target}.`;
+    offerDaysInput.value = "";
+    offerNumberInput.value = "";
+  } catch (err) {
+    adminOfferStatus.textContent = `⚠️ ${err.message}`;
+  } finally {
+    offerSendBtn.disabled = false;
   }
 });
 

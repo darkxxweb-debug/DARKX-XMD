@@ -12,6 +12,7 @@ const { getSettings } = require('../../library/settingsStore');
 const { isBanned, banNumber, unbanNumber, listBanned, adminLogin, isAdminToken } = require('../../library/adminStore');
 const transactions = require('../../library/transactionStore');
 const vouchersLib = require('../../library/voucherStore');
+const sub = require('../../library/subscriptionStore');
 const config = require('../../settings/config');
 
 const router = express.Router();
@@ -174,6 +175,38 @@ router.post('/vouchers/:code/deactivate', requireAdmin, async (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Pricing (admin-editable) ---
+router.get('/pricing', requireAdmin, async (req, res) => {
+    try {
+        res.json({ pricing: await sub.getPricing() });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/pricing', requireAdmin, async (req, res) => {
+    try {
+        const { weeklyPrice, monthlyPrice, commandPackPrice, commandPackSize } = req.body || {};
+        const pricing = await sub.setPricing({ weeklyPrice, monthlyPrice, commandPackPrice, commandPackSize });
+        res.json({ ok: true, pricing });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// --- Offers / promos: grant `days` of full command access to one number
+// (or "all" connected accounts), independent of any plan or purchase ---
+router.post('/offer', requireAdmin, async (req, res) => {
+    try {
+        const { target, days } = req.body || {};
+        if (!target) return res.status(400).json({ error: 'Please choose a target — "all" or a specific number.' });
+        const result = await sub.addPromoOffer(target, days);
+        res.json({ ok: true, ...result });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
     }
 });
 
