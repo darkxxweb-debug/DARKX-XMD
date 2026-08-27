@@ -101,6 +101,24 @@ adminLogoutBtn.addEventListener("click", () => {
   showLogin();
 });
 
+// ---------- Mobile sidebar drawer (hamburger) ----------
+const adminSidebar = document.getElementById("admin-sidebar");
+const sidebarHamburger = document.getElementById("sidebar-hamburger");
+const sidebarOverlay = document.getElementById("sidebar-overlay");
+
+function openSidebar() {
+  adminSidebar.classList.add("open");
+  sidebarOverlay.classList.add("show");
+}
+function closeSidebar() {
+  adminSidebar.classList.remove("open");
+  sidebarOverlay.classList.remove("show");
+}
+sidebarHamburger?.addEventListener("click", () => {
+  adminSidebar.classList.contains("open") ? closeSidebar() : openSidebar();
+});
+sidebarOverlay?.addEventListener("click", closeSidebar);
+
 // ---------- Sidebar tab / "window" switching ----------
 const pageMeta = {
   sessions: ["Sessions", "Connected and offline WhatsApp sessions"],
@@ -124,7 +142,10 @@ function switchAdminTab(name) {
   }
 }
 document.querySelectorAll(".sidebar-link[data-admin-tab]").forEach((btn) => {
-  btn.addEventListener("click", () => switchAdminTab(btn.dataset.adminTab));
+  btn.addEventListener("click", () => {
+    switchAdminTab(btn.dataset.adminTab);
+    closeSidebar();
+  });
 });
 
 async function adminFetch(url, options = {}) {

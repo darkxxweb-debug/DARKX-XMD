@@ -170,11 +170,28 @@
 
   #admin-notify-status, #admin-channel-status { font-size: 12.5px; color: var(--muted); margin-top: 4px; min-height: 16px; }
 
+  /* ---------- Mobile: sidebar becomes a hamburger-triggered drawer ---------- */
+  .sidebar-hamburger { display: none; }
+  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(6,10,18,0.55); z-index: 400; }
+  .sidebar-overlay.show { display: block; }
+
   @media (max-width: 980px) {
     #admin-app.show { grid-template-columns: 1fr; }
-    .admin-sidebar { display: none; }
-    .admin-topbar { padding: 18px 20px; flex-wrap: wrap; }
-    .admin-content { padding: 20px 20px 50px; }
+    .admin-sidebar {
+      position: fixed; top: 0; left: 0; width: 78%; max-width: 300px; height: 100vh; z-index: 450;
+      transform: translateX(-100%); transition: transform 0.25s cubic-bezier(.2,.8,.2,1); box-shadow: var(--shadow-lg);
+    }
+    .admin-sidebar.open { transform: translateX(0); }
+    .sidebar-hamburger {
+      display: flex; align-items: center; justify-content: center; width: 38px; height: 38px;
+      border-radius: 10px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text);
+      font-size: 16px; cursor: pointer; flex-shrink: 0;
+    }
+    .admin-topbar { padding: 16px 18px; flex-wrap: wrap; gap: 12px; }
+    .admin-topbar .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .admin-content { padding: 18px 18px 50px; }
+    .stat-strip { gap: 8px; overflow-x: auto; width: 100%; }
+    .stat-card { min-width: 74px; flex-shrink: 0; }
   }
 </style>
 </head>
@@ -201,7 +218,8 @@
 
   <!-- ============ ADMIN DASHBOARD (wide, full screen) ============ -->
   <div id="admin-app">
-    <aside class="admin-sidebar">
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+    <aside class="admin-sidebar" id="admin-sidebar">
       <div class="sidebar-brand">
         <img src="https://files.catbox.moe/pc5uec.png" alt="DarkX Ultimate logo" />
         <div>
@@ -228,9 +246,12 @@
 
     <main class="admin-main">
       <header class="admin-topbar">
-        <div>
-          <div class="page-title" id="admin-page-title">Sessions</div>
-          <div class="page-sub" id="admin-page-sub">Connected and offline WhatsApp sessions</div>
+        <div class="topbar-left">
+          <button class="sidebar-hamburger" id="sidebar-hamburger">☰</button>
+          <div>
+            <div class="page-title" id="admin-page-title">Sessions</div>
+            <div class="page-sub" id="admin-page-sub">Connected and offline WhatsApp sessions</div>
+          </div>
         </div>
         <div class="stat-strip" id="admin-stats">
           <div class="stat-card"><div class="stat-num" id="stat-sessions">–</div><div class="stat-label">Sessions</div></div>
