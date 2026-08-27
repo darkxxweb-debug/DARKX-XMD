@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DarkX Ultimate | Admin</title>
+<link rel="icon" href="https://files.catbox.moe/pc5uec.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif; }
+  html, body { height: 100%; }
+  h1, h2, h3, .brand-name, button.action, .stat-num, .sidebar-link, .page-title {
+    font-family: 'Manrope', 'Inter', sans-serif;
+  }
+
+  :root {
+    --bg: #eef1f6;
+    --surface: #ffffff;
+    --surface-alt: #f3f6fb;
+    --text: #111827;
+    --muted: #667085;
+    --border: #e3e8f0;
+    --primary: #1d3f8f;
+    --primary-dark: #132c66;
+    --accent: #2f6fed;
+    --accent-soft: #eaf1ff;
+    --money: #0e9f6e;
+    --money-soft: #e6f9f1;
+    --danger: #dc2626;
+    --danger-soft: #fdeceb;
+    --shadow-sm: 0 1px 2px rgba(16,24,40,0.06), 0 1px 3px rgba(16,24,40,0.08);
+    --shadow-md: 0 8px 24px rgba(16,24,40,0.10);
+    --shadow-lg: 0 24px 60px rgba(16,24,40,0.20);
+  }
+  [data-theme="dark"] {
+    --bg: #0a0f1a;
+    --surface: #111a2c;
+    --surface-alt: #0e1626;
+    --text: #eef2ff;
+    --muted: #8b96b3;
+    --border: #1e2a44;
+    --primary: #5b8def;
+    --primary-dark: #3a63c4;
+    --accent: #5b8def;
+    --accent-soft: #132241;
+    --money: #34d399;
+    --money-soft: #0f2a22;
+    --danger: #f87171;
+    --danger-soft: #2a1414;
+  }
+
+  body { background: var(--bg); color: var(--text); }
+  a { color: inherit; }
+  button { font-family: inherit; }
+  input, select, textarea {
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--border);
+    background: var(--surface-alt); color: var(--text); font-size: 14px; outline: none; margin-bottom: 12px;
+    font-family: inherit; transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); background: var(--surface); }
+  label { display: block; color: var(--text); opacity: 0.85; font-size: 12px; margin-bottom: 6px; font-weight: 600; }
+  button.action {
+    padding: 12px 20px; border: none; border-radius: 10px; background: var(--primary); color: #fff;
+    font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow-sm); transition: transform 0.12s, opacity 0.12s;
+  }
+  button.action:hover { opacity: 0.92; }
+  button.action:disabled { opacity: 0.55; cursor: not-allowed; }
+  button.action.wide { width: 100%; }
+  button.action.money { background: var(--money); }
+
+  /* ================= LOGIN SCREEN — full-bleed, wide, centered ================= */
+  #admin-login-screen {
+    min-height: 100vh; width: 100%; display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: radial-gradient(circle at 25% 15%, #1d3f8f 0%, #060a13 65%);
+  }
+  [data-theme="dark"] #admin-login-screen { background: radial-gradient(circle at 25% 15%, #16264d 0%, #04060b 65%); }
+  #admin-login-screen.hidden { display: none; }
+  .login-card {
+    width: 100%; max-width: 380px; background: var(--surface); border-radius: 20px; padding: 36px 32px;
+    box-shadow: var(--shadow-lg); border: 1px solid var(--border);
+  }
+  .login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .login-brand img { width: 44px; height: 44px; border-radius: 12px; box-shadow: var(--shadow-sm); }
+  .login-brand h1 { font-size: 16px; font-weight: 800; }
+  .login-brand span { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+  .login-card h2 { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+  .modal-error { color: var(--danger); font-size: 12.5px; min-height: 16px; margin-bottom: 8px; font-weight: 600; }
+  .login-hint { text-align: center; margin-top: 18px; font-size: 11.5px; color: var(--muted); }
+  .login-hint a { color: var(--accent); font-weight: 600; text-decoration: none; }
+
+  /* ================= ADMIN APP SHELL — wide desktop, full screen ================= */
+  #admin-app { display: none; height: 100vh; width: 100%; }
+  #admin-app.show { display: grid; grid-template-columns: 264px 1fr; }
+
+  .admin-sidebar {
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 22px 16px; height: 100vh; overflow-y: auto;
+  }
+  .sidebar-brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 20px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .sidebar-brand img { width: 38px; height: 38px; border-radius: 10px; box-shadow: var(--shadow-sm); }
+  .sidebar-brand .brand-name { font-size: 14px; font-weight: 800; }
+  .sidebar-brand span { display: block; font-size: 10.5px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+  .sidebar-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .sidebar-link {
+    display: flex; align-items: center; gap: 12px; padding: 11px 13px; border-radius: 11px;
+    background: transparent; border: none; color: var(--text); font-size: 13.5px; font-weight: 600;
+    cursor: pointer; text-align: left; width: 100%; transition: 0.15s;
+  }
+  .sidebar-link .ic { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-link:hover { background: var(--surface-alt); }
+  .sidebar-link.active { background: var(--accent-soft); color: var(--accent); }
+
+  .sidebar-foot { padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .theme-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px; }
+  .theme-row span { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-alt);
+    color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px;
+  }
+  .logout-link { background: none; border: none; color: var(--danger); font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: left; padding: 4px; }
+
+  .admin-main { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .admin-topbar {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    padding: 22px 36px; border-bottom: 1px solid var(--border); background: var(--surface);
+  }
+  .page-title { font-size: 20px; font-weight: 800; }
+  .page-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; font-weight: 500; }
+  .stat-strip { display: flex; gap: 12px; }
+  .stat-card {
+    background: var(--surface-alt); border: 1px solid var(--border); border-radius: 14px;
+    padding: 10px 18px; text-align: center; min-width: 84px;
+  }
+  .stat-num { font-size: 19px; font-weight: 800; color: var(--primary); }
+  [data-theme="dark"] .stat-num { color: var(--accent); }
+  .stat-label { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; margin-top: 2px; }
+
+  .admin-content { flex: 1 1 auto; overflow-y: auto; padding: 32px 36px 60px; }
+  .admin-window { display: none; max-width: 900px; }
+  .admin-window.active { display: block; }
+  .content-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 26px 28px; box-shadow: var(--shadow-sm); margin-bottom: 20px; }
+  .content-card h3 { font-size: 14px; font-weight: 800; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+  .info-box { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; padding: 12px 15px; font-size: 12.5px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
+
+  .admin-list { display: flex; flex-direction: column; gap: 8px; }
+  .admin-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    background: var(--surface-alt); border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 16px; font-size: 13px;
+  }
+  .admin-row .row-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .admin-row .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .dot.online { background: var(--money); box-shadow: 0 0 0 3px var(--money-soft); }
+  .dot.offline { background: var(--muted); opacity: 0.5; }
+  .admin-row small { color: var(--muted); display: block; margin-top: 3px; }
+  .admin-row .row-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .admin-row button {
+    border: none; border-radius: 8px; padding: 7px 13px; font-size: 11.5px; cursor: pointer; font-weight: 700;
+  }
+  .btn-danger { background: var(--danger-soft); color: var(--danger); }
+  .btn-secondary { background: var(--accent-soft); color: var(--accent); }
+
+  .inline-form { display: flex; gap: 10px; align-items: flex-end; }
+  .inline-form > div { flex: 1; }
+  .inline-form input, .inline-form select { margin-bottom: 0; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+
+  #admin-notify-status, #admin-channel-status { font-size: 12.5px; color: var(--muted); margin-top: 4px; min-height: 16px; }
+
+  @media (max-width: 980px) {
+    #admin-app.show { grid-template-columns: 1fr; }
+    .admin-sidebar { display: none; }
+    .admin-topbar { padding: 18px 20px; flex-wrap: wrap; }
+    .admin-content { padding: 20px 20px 50px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ============ LOGIN SCREEN ============ -->
+  <div id="admin-login-screen">
+    <div class="login-card">
+      <div class="login-brand">
+        <img src="https://files.catbox.moe/pc5uec.png" alt="DarkX Ultimate logo" />
+        <div>
+          <h1>DarkX Ultimate</h1>
+          <span>Admin Access</span>
+        </div>
+      </div>
+      <h2>Sign in to the admin panel</h2>
+      <label for="admin-password">Admin password</label>
+      <input type="password" id="admin-password" placeholder="Enter admin password" />
+      <div id="admin-login-error" class="modal-error"></div>
+      <button class="action wide" id="admin-login-btn">Login</button>
+      <div class="login-hint">Not an admin? <a href="index.html">Back to the main panel</a></div>
+    </div>
+  </div>
+
+  <!-- ============ ADMIN DASHBOARD (wide, full screen) ============ -->
+  <div id="admin-app">
+    <aside class="admin-sidebar">
+      <div class="sidebar-brand">
+        <img src="https://files.catbox.moe/pc5uec.png" alt="DarkX Ultimate logo" />
+        <div>
+          <div class="brand-name">DarkX Ultimate</div>
+          <span>Admin Panel</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav" id="admin-tabs">
+        <button class="sidebar-link active" data-admin-tab="sessions"><span class="ic">🖥️</span>Sessions</button>
+        <button class="sidebar-link" data-admin-tab="banned"><span class="ic">🚫</span>Banned Numbers</button>
+        <button class="sidebar-link" data-admin-tab="transactions"><span class="ic">💳</span>Transactions</button>
+        <button class="sidebar-link" data-admin-tab="vouchers"><span class="ic">🎟️</span>Vouchers</button>
+        <button class="sidebar-link" data-admin-tab="broadcast"><span class="ic">📢</span>Broadcast</button>
+        <button class="sidebar-link" data-admin-tab="channel"><span class="ic">📡</span>Channel Post</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="theme-row">
+          <span>Theme</span>
+          <button class="icon-btn" id="theme-toggle-btn"><span id="theme-toggle-icon">🌙</span></button>
+        </div>
+        <button class="logout-link" id="admin-logout-btn">Log out of admin</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div>
+          <div class="page-title" id="admin-page-title">Sessions</div>
+          <div class="page-sub" id="admin-page-sub">Connected and offline WhatsApp sessions</div>
+        </div>
+        <div class="stat-strip" id="admin-stats">
+          <div class="stat-card"><div class="stat-num" id="stat-sessions">–</div><div class="stat-label">Sessions</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-banned">–</div><div class="stat-label">Banned</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-tx">–</div><div class="stat-label">Pending Tx</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-vouchers">–</div><div class="stat-label">Vouchers</div></div>
+        </div>
+      </header>
+
+      <div class="admin-content">
+
+        <!-- Window: Sessions -->
+        <div class="admin-window active" id="admin-window-sessions">
+          <div class="content-card">
+            <h3>Connected / Offline Sessions</h3>
+            <div id="admin-sessions-list" class="admin-list"></div>
+          </div>
+        </div>
+
+        <!-- Window: Banned numbers -->
+        <div class="admin-window" id="admin-window-banned">
+          <div class="content-card">
+            <h3>Ban a number</h3>
+            <div class="inline-form">
+              <div><input type="text" id="ban-number-input" placeholder="e.g. 2557XXXXXXXX" /></div>
+              <button class="action" id="ban-btn">Ban</button>
+            </div>
+          </div>
+          <div class="content-card">
+            <h3>Currently banned</h3>
+            <div id="admin-banned-list" class="admin-list"></div>
+          </div>
+        </div>
+
+        <!-- Window: Transactions -->
+        <div class="admin-window" id="admin-window-transactions">
+          <div class="content-card">
+            <h3>Pending Subscription Transactions</h3>
+            <div id="admin-tx-list" class="admin-list"></div>
+          </div>
+        </div>
+
+        <!-- Window: Vouchers -->
+        <div class="admin-window" id="admin-window-vouchers">
+          <div class="content-card">
+            <h3>Generate a voucher</h3>
+            <label for="voucher-target-input">Recipient number (who this voucher is for)</label>
+            <input type="text" id="voucher-target-input" placeholder="e.g. 2557XXXXXXXX" />
+            <div class="form-grid">
+              <div>
+                <label for="voucher-plan-select">Plan</label>
+                <select id="voucher-plan-select">
+                  <option value="lite">Lite</option>
+                  <option value="pro">Pro</option>
+                </select>
+              </div>
+              <div>
+                <label for="voucher-days-input">Duration (days)</label>
+                <input type="number" id="voucher-days-input" placeholder="e.g. 30" />
+              </div>
+            </div>
+            <button class="action" id="voucher-generate-btn">Generate Voucher</button>
+            <div class="info-box" style="margin-top:16px;">The code is shareable, but whoever redeems it first claims it exclusively — single use only.</div>
+          </div>
+          <div class="content-card">
+            <h3>All vouchers</h3>
+            <div id="admin-voucher-list" class="admin-list"></div>
+          </div>
+        </div>
+
+        <!-- Window: Broadcast -->
+        <div class="admin-window" id="admin-window-broadcast">
+          <div class="content-card">
+            <h3>Send notification to all connected owners</h3>
+            <label for="notify-image">Image URL (optional)</label>
+            <input type="text" id="notify-image" placeholder="https://example.com/image.jpg" />
+            <label for="notify-message">Message</label>
+            <input type="text" id="notify-message" placeholder="Write your announcement..." />
+            <button class="action" id="notify-send-btn">Send Notification</button>
+            <div id="admin-notify-status"></div>
+          </div>
+        </div>
+
+        <!-- Window: Channel Broadcast -->
+        <div class="admin-window" id="admin-window-channel">
+          <div class="content-card">
+            <h3>Post to the WhatsApp Channel</h3>
+            <div class="info-box">Posts directly to the channel JID shown in the bot's <b>.menu</b> — sent using whichever number is currently connected.</div>
+            <label for="channel-image">Image Link</label>
+            <input type="text" id="channel-image" placeholder="https://example.com/image.jpg" />
+            <label for="channel-text">Message</label>
+            <textarea id="channel-text" rows="5" placeholder="Write your channel post..." style="resize:vertical;"></textarea>
+            <button class="action" id="channel-send-btn">Push to Channel</button>
+            <div id="admin-channel-status"></div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+<script src="admin.js"></script>
+</body>
+</html>
