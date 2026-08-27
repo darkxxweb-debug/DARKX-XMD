@@ -182,10 +182,12 @@ module.exports = async (sock, m, chatUpdate) => {
                     if (!cmdMatch) continue;
 
                     const account = await getAccount(sessionId);
-                    if (!isCommandAllowed(account.plan, command)) {
+                    if (!isCommandAllowed(account, command)) {
                         return reply(
-                            `🔒 *${command}* is locked on the *${account.plan.toUpperCase()}* plan.\n\n` +
-                            `Please subscribe to unlock all commands. Open the web panel → *Subscribe* to upgrade.`
+                            `🔒 *${command}* is locked.\n\n` +
+                            `Unlock it by buying just this command (and a few others) as a command pack, ` +
+                            `or subscribe to a Weekly/Monthly plan for full access to every command.\n` +
+                            `Open the web panel → *Subscribe* to choose.`
                         );
                     }
 
