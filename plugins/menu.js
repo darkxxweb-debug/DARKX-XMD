@@ -3,15 +3,16 @@
 const fs = require("fs");
 const path = require("path");
 
-let baileys;
-try { baileys = require("@whiskeysockets/baileys"); }
-catch { baileys = require("baileys"); }
-const { generateWAMessageFromContent, prepareWAMessageMedia, proto } = baileys;
-
 const NEWSLETTER = {
     newsletterJid: "120363427307889741@newsletter",
     newsletterName: "DARKX ULTIMATE",
     serverMessageId: 1
+};
+
+const CTX = {
+    forwardingScore: 999,
+    isForwarded: true,
+    forwardedNewsletterMessageInfo: NEWSLETTER
 };
 
 const CAT_EMOJI = {
@@ -22,7 +23,6 @@ const CAT_EMOJI = {
 };
 const emo = (c) => CAT_EMOJI[c] || "🔹";
 
-// ── Soma plugins na upange kwa category ──
 function loadCategories(pluginFolder) {
     const files = fs.readdirSync(pluginFolder).filter(f => f.endsWith(".js"));
     const categories = {};
@@ -46,32 +46,6 @@ function uptime() {
     return `${Math.floor(r / 3600)}h ${Math.floor((r % 3600) / 60)}m ${Math.floor(r % 60)}s`;
 }
 
-async function sendInteractive(sock, m, { image, body, footer, buttons }) {
-    const media = await prepareWAMessageMedia({ image }, { upload: sock.waUploadToServer });
-    const msg = generateWAMessageFromContent(m.chat, {
-        viewOnceMessage: {
-            message: {
-                messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
-                interactiveMessage: proto.Message.InteractiveMessage.create({
-                    header: proto.Message.InteractiveMessage.Header.create({
-                        hasMediaAttachment: true,
-                        ...media
-                    }),
-                    body: { text: body },
-                    footer: { text: footer },
-                    nativeFlowMessage: { buttons },
-                    contextInfo: {
-                        forwardingScore: 999,
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: NEWSLETTER
-                    }
-                })
-            }
-        }
-    }, { quoted: m });
-    await sock.relayMessage(m.chat, msg.message, { messageId: msg.key.id });
-}
-
 module.exports = {
     command: ["menu", "help", "mainmenu", "hali"],
     category: "main",
@@ -81,6 +55,7 @@ module.exports = {
             const pluginFolder = path.join(__dirname, "../plugins");
             const imagePath = path.resolve(__dirname, "../media/repo.jpg");
             const audioPath = path.resolve(__dirname, "../media/repo.mp3");
+            const P = config.prefix;
 
             const image = fs.existsSync(imagePath)
                 ? fs.readFileSync(imagePath)
@@ -89,75 +64,62 @@ module.exports = {
             const { categories, total } = loadCategories(pluginFolder);
             const catNames = Object.keys(categories).sort();
 
-            // Category aliyochagua user (menu <category>)
-            const input = (args && args.length
+            // Input ya user: .menu group  au  .menu 2
+            let input = (args && args.length
                 ? args.join(" ")
                 : (m.text || m.body || "").trim().split(/\s+/).slice(1).join(" ")
             ).trim().toUpperCase();
 
-            const footer = `⚡ ${config.watermark}`;
+            if (/^\d+$/.test(input)) input = catNames[parseInt(input) - 1] || input;
+
+            const send = async (caption) => {
+                try {
+                    await sock.sendMessage(m.chat, { image, caption, contextInfo: CTX }, { quoted: m });
+                } catch (e) {
+                    console.error("IMAGE SEND FAIL:", e.message);
+                    await sock.sendMessage(m.chat, { text: caption, contextInfo: CTX }, { quoted: m });
+                }
+            };
 
             // ═════════ SUB MENU ═════════
             if (input && categories[input]) {
                 const cmds = categories[input];
-                let text = `╭━━━〔 ${emo(input)} *${input} MENU* 〕━━━╮\n`;
-                text += `┃ 📂 *Commands* : *${cmds.length}*\n`;
-                text += `╰━━━━━━━━━━━━━━━━━━╯\n\n`;
-                for (const c of cmds) text += ` ▸ *${config.prefix}${c}*\n`;
-                text += `\n_Bonyeza kitufe hapa chini kurudi menu kuu_`;
-
-                return await sendInteractive(sock, m, {
-                    image, body: text, footer,
-                    buttons: [{
-                        name: "quick_reply",
-                        buttonParamsJson: JSON.stringify({
-                            display_text: "⬅️ MENU KUU",
-                            id: `${config.prefix}menu`
-                        })
-                    }]
-                });
+                let t = `╭━━━━━━━━━━━━━━━━━━╮\n`;
+                t += `┃ ${emo(input)} *${input} MENU*\n`;
+                t += `┃ 📂 *Commands* : *${cmds.length}*\n`;
+                t += `╰━━━━━━━━━━━━━━━━━━╯\n\n`;
+                for (const c of cmds) t += `  ▸ *${P}${c}*\n`;
+                t += `\n━━━━━━━━━━━━━━━━━━\n`;
+                t += `↩️ *Rudi menu kuu:* *${P}menu*\n`;
+                t += `⚡ _${config.watermark}_`;
+                return await send(t);
             }
 
             // ═════════ MENU KUU ═════════
-            let text = `╭━━━〔 *${config.botName}* 〕━━━╮\n`;
-            text += `┃ 👤 *Owner*    : *${config.ownerName}*\n`;
-            text += `┃ 📅 *Date*     : *${new Date().toLocaleDateString()}*\n`;
-            text += `┃ ⏱ *Runtime*  : *${uptime()}*\n`;
-            text += `┃ 📂 *Commands* : *${total}*\n`;
-            text += `┃ 📶 *Status*   : *Online* 🟢\n`;
-            text += `╰━━━━━━━━━━━━━━━━━━╯\n\n`;
-            text += `*📜 CATEGORIES*\n`;
-            for (const c of catNames) text += ` ${emo(c)} *${c}* — _${categories[c].length}_\n`;
-            text += `\n_Bonyeza kitufe cha chini kuchagua category_ 👇`;
+            let t = `╭━━━━━━━━━━━━━━━━━━╮\n`;
+            t += `┃ 🤖 *${config.botName}*\n`;
+            t += `╰━━━━━━━━━━━━━━━━━━╯\n\n`;
+            t += `👤 *Owner*    : *${config.ownerName}*\n`;
+            t += `📅 *Date*     : *${new Date().toLocaleDateString()}*\n`;
+            t += `⏱ *Runtime*  : *${uptime()}*\n`;
+            t += `📂 *Commands* : *${total}*\n`;
+            t += `📶 *Status*   : *Online* 🟢\n\n`;
+            t += `━━━━━〔 *📜 CATEGORIES* 〕━━━━━\n\n`;
+            catNames.forEach((c, i) => {
+                t += `*${i + 1}.* ${emo(c)} *${c}* ➜ _${categories[c].length}_\n`;
+            });
+            t += `\n━━━━━━━━━━━━━━━━━━\n`;
+            t += `👉 *Fungua category:*\n`;
+            t += `   *${P}menu <jina>*  au  *${P}menu <namba>*\n`;
+            t += `   _mfano:_ *${P}menu ${catNames[0].toLowerCase()}*  au  *${P}menu 1*\n`;
+            t += `━━━━━━━━━━━━━━━━━━\n`;
+            t += `⚡ _${config.watermark}_`;
 
-            const rows = catNames.map(c => ({
-                header: emo(c),
-                title: `${c} MENU`,
-                description: `Commands ${categories[c].length}`,
-                id: `${config.prefix}menu ${c.toLowerCase()}`
-            }));
-
-            try {
-                await sendInteractive(sock, m, {
-                    image, body: text, footer,
-                    buttons: [{
-                        name: "single_select",
-                        buttonParamsJson: JSON.stringify({
-                            title: "📂 CHAGUA CATEGORY",
-                            sections: [{ title: "✦ MAIN MENU ✦", highlight_label: "DARKX", rows }]
-                        })
-                    }]
-                });
-            } catch (e) {
-                // Fallback kama buttons hazifanyi: tuma text ya kawaida
-                console.error("INTERACTIVE FAIL:", e.message);
-                let plain = text.replace("_Bonyeza kitufe cha chini kuchagua category_ 👇", "");
-                plain += `\n_Andika_ *${config.prefix}menu <category>*  _mfano:_ *${config.prefix}menu ${catNames[0].toLowerCase()}*`;
-                await sock.sendMessage(m.chat, {
-                    image, caption: plain,
-                    contextInfo: { forwardingScore: 999, isForwarded: true, forwardedNewsletterMessageInfo: NEWSLETTER }
-                }, { quoted: m });
+            if (input) {
+                t = `❌ *Category "${input}" haipo.*\n\n` + t;
             }
+
+            await send(t);
 
             if (fs.existsSync(audioPath)) {
                 await sock.sendMessage(m.chat, {
