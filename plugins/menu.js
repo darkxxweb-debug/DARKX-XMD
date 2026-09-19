@@ -2,26 +2,15 @@
 
 const fs = require("fs");
 const path = require("path");
-const { getAccount, allowedCommands, PLANS } = require("../library/subscriptionStore");
 
 module.exports = {
     command: ["menu", "help", "mainmenu", "hali"],
     category: "main",
 
-    execute: async (sock, m, { reply, config, sessionId }) => {
+    execute: async (sock, m, { reply, config }) => {
         try {
             const pluginFolder = path.join(__dirname, "../plugins");
             const pluginFiles = fs.readdirSync(pluginFolder).filter(f => f.endsWith(".js"));
-
-            // 🔐 One single "menu" command — the content it shows is chosen
-            // automatically based on the account's access: a full-access
-            // plan (weekly/monthly, or an active admin promo) unlocks
-            // everything, otherwise only individually-purchased commands
-            // (+ this menu command itself) are unlocked.
-            const senderNumber = sessionId || m.sender?.replace(/[^0-9]/g, "") || "";
-            const account = await getAccount(senderNumber);
-            const plan = account.plan || "starter";
-            const allowed = allowedCommands(account); // null = full access (everything unlocked)
 
             // 🔔 NEWSLETTER INFO (FOR FORWARDED LOOK)
             const newsletterJid = "120363427307889741@newsletter";
@@ -46,10 +35,9 @@ module.exports = {
             menuText += `⏱ Runtime : ${h}h ${min}m ${s}s\n`;
             menuText += `📂 Commands: ${pluginFiles.length}\n`;
             menuText += `📶 Status  : Online\n`;
-            menuText += `💎 Plan    : ${(PLANS[plan]?.label || plan).toUpperCase()}\n`;
             menuText += `──────────────────\n\n`;
 
-            // 📂 LOAD COMMANDS (unlocked vs locked, based on the account's plan)
+            // 📂 LOAD COMMANDS
             let categories = {};
 
             for (const file of pluginFiles) {
@@ -69,39 +57,22 @@ module.exports = {
                         ? plugin.category.toUpperCase()
                         : "OTHER";
 
-                    const unlocked = allowed === null || allowed.includes(name.toLowerCase());
-
                     if (!categories[cat]) categories[cat] = [];
-                    categories[cat].push({ name, unlocked });
+                    categories[cat].push({ name });
                 } catch {
                     continue;
                 }
             }
 
-            // 📜 COMMAND LIST — unlocked commands show plainly, locked ones
-            // show with a 🔒 so the user knows to upgrade to see them work.
-            let lockedCount = 0;
+            // 📜 COMMAND LIST
             for (const cat of Object.keys(categories).sort()) {
                 menuText += `🔹 ${cat}\n`;
                 for (const cmd of categories[cat].sort((a, b) => a.name.localeCompare(b.name))) {
-                    if (cmd.unlocked) {
-                        menuText += `   • ${config.prefix}${cmd.name}\n`;
-                    } else {
-                        menuText += `   🔒 ${config.prefix}${cmd.name}\n`;
-                        lockedCount++;
-                    }
+                    menuText += `   • ${config.prefix}${cmd.name}\n`;
                 }
                 menuText += `\n`;
             }
-
-            if (lockedCount > 0) {
-                menuText += `🔒 ${lockedCount} command(s) are locked.\n`;
-                menuText += `Buy just the ones you want as a command pack, or subscribe to a\n`;
-                menuText += `Weekly/Monthly plan for full access — from the web panel → *Subscribe*.\n`;
-                menuText += `──────────────────\n`;
-            } else {
-                menuText += `──────────────────\n`;
-            }
+            menuText += `──────────────────\n`;
             menuText += `Powered by ${config.watermark}`;
 
             // 🖼 IMAGE
