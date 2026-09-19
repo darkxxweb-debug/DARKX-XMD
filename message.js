@@ -13,7 +13,6 @@ const chalk = require("chalk");
 const baseConfig = require("./settings/config");
 const { getSettings } = require("./library/settingsStore");
 const { synchronizeData } = require("./library/database");
-const { getAccount, isCommandAllowed } = require("./library/subscriptionStore");
 
 // Store for anti-delete cache (per process, shared across sessions is fine)
 const recentMessages = new Map();
@@ -180,16 +179,6 @@ module.exports = async (sock, m, chatUpdate) => {
                         : plugin.command?.toLowerCase() === command;
 
                     if (!cmdMatch) continue;
-
-                    const account = await getAccount(sessionId);
-                    if (!isCommandAllowed(account, command)) {
-                        return reply(
-                            `🔒 *${command}* is locked.\n\n` +
-                            `Unlock it by buying just this command (and a few others) as a command pack, ` +
-                            `or subscribe to a Weekly/Monthly plan for full access to every command.\n` +
-                            `Open the web panel → *Subscribe* to choose.`
-                        );
-                    }
 
                     if (plugin.isOwner && !isOwner) return reply(config.msg?.owner || "Owner only!");
                     if (plugin.isGroup && !isGroup) return reply(config.msg?.group || "Group only!");

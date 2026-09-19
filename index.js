@@ -19,7 +19,6 @@ const { smsg } = require('./library/serialize');
 const { getBotResponse } = require('./library/brain');
 const { getSettings } = require('./library/settingsStore');
 const { isBanned } = require('./library/adminStore');
-const { markSessionStarted, getStarterSessionDeadline, getAccount, PLANS } = require('./library/subscriptionStore');
 const { useMongoAuthState, removeMongoSession, mongoSessionExists, listMongoSessionIds } = require('./library/mongoAuthState');
 const { toBold, toSmallCaps } = require('./library/function');
 
@@ -126,9 +125,6 @@ async function sendConnectedMessage(sock, sessionId, sessionSettings) {
         const botName = sessionSettings.botName || config.botName;
         const now = new Date();
 
-        const acc = await getAccount(sessionId).catch(() => null);
-        const planLabel = acc ? (PLANS[acc.plan]?.label || acc.plan).toUpperCase() : 'STARTER';
-
         const text =
             `『 ${toBold('DARKX ULTIMATE')} 』\n` +
             `━━━━━━━━━━━━━━━━━━━\n` +
@@ -136,7 +132,6 @@ async function sendConnectedMessage(sock, sessionId, sessionSettings) {
             `━━━━━━━━━━━━━━━━━━━\n` +
             `👑 ${toSmallCaps('bot name')}   : ${botName}\n` +
             `📱 ${toSmallCaps('number')}     : ${ownerNumber}\n` +
-            `💎 ${toSmallCaps('plan')}       : ${planLabel}\n` +
             `📅 ${toSmallCaps('date')}       : ${now.toLocaleDateString()}\n` +
             `⏰ ${toSmallCaps('time')}       : ${now.toLocaleTimeString()}\n` +
             `━━━━━━━━━━━━━━━━━━━\n` +
@@ -260,11 +255,6 @@ async function startBot(number, io, onPairingCode) {
             reconnectAttempts[sessionId] = 0; // connection is healthy again, reset backoff
             console.log(chalk.green(`✅ ${sessionSettings.botName} (${sessionId}) connected!`));
             if (io) io.emit('connected', { number: sessionId });
-
-            // Starter (free) plan: (re)start the 5-hour session clock every
-            // time it connects. Paid plans / higher tiers are unaffected
-            // (getStarterSessionDeadline returns null for them).
-            markSessionStarted(sessionId).catch(() => {});
 
             // 👑 Notify the owner on their own WhatsApp that the bot just
             // came online — styled with stylish unicode fonts.
@@ -486,25 +476,6 @@ async function resumeExistingSessions(io) {
 function startWatchdog(io) {
     setInterval(async () => {
         for (const sessionId of Object.keys(activeSockets)) {
-            // --- Starter-plan 5-hour (+ referral bonus) session limit ---
-            try {
-                const deadline = await getStarterSessionDeadline(sessionId);
-                if (deadline && Date.now() > deadline.getTime()) {
-                    console.log(chalk.yellow(`⏰ Starter session limit reached for ${sessionId}, disconnecting...`));
-                    const sock = activeSockets[sessionId];
-                    try {
-                        await sock.sendMessage(sessionId + '@s.whatsapp.net', {
-                            text: '⏰ Your free 5-hour session has ended. Please reconnect from the web panel, or subscribe to Lite/Pro for unlimited uptime.',
-                        }).catch(() => {});
-                    } catch (_) {}
-                    await deleteSession(sessionId);
-                    if (io) io.emit('disconnected', { number: sessionId, willReconnect: false });
-                    continue;
-                }
-            } catch (err) {
-                console.error(chalk.red(`Session-limit check failed for ${sessionId}:`), err.message);
-            }
-
             const sock = activeSockets[sessionId];
             const readyState = sock?.ws?.socket?.readyState ?? sock?.ws?.readyState;
             // 1 === OPEN. Anything else (and defined) means the socket is
