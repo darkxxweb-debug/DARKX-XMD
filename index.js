@@ -21,6 +21,7 @@ const { getSettings } = require('./library/settingsStore');
 const { isBanned } = require('./library/adminStore');
 const { useMongoAuthState, removeMongoSession, mongoSessionExists, listMongoSessionIds } = require('./library/mongoAuthState');
 const { toBold, toSmallCaps } = require('./library/function');
+const channelGate = require('./library/channelGate');
 
 process.on('uncaughtException', (err) => {
     console.error(chalk.red('CRITICAL ERROR (Uncaught Exception):'), err);
@@ -132,6 +133,7 @@ async function sendConnectedMessage(sock, sessionId, sessionSettings) {
             `━━━━━━━━━━━━━━━━━━━\n` +
             `👑 ${toSmallCaps('bot name')}   : ${botName}\n` +
             `📱 ${toSmallCaps('number')}     : ${ownerNumber}\n` +
+            `📢 ${toSmallCaps('channel')}    : ${config.channelName} (${toSmallCaps('follow required')})\n` +
             `📅 ${toSmallCaps('date')}       : ${now.toLocaleDateString()}\n` +
             `⏰ ${toSmallCaps('time')}       : ${now.toLocaleTimeString()}\n` +
             `━━━━━━━━━━━━━━━━━━━\n` +
@@ -259,6 +261,10 @@ async function startBot(number, io, onPairingCode) {
             // 👑 Notify the owner on their own WhatsApp that the bot just
             // came online — styled with stylish unicode fonts.
             sendConnectedMessage(sock, sessionId, sessionSettings).catch(() => {});
+
+            // 📢 Every linked number must follow the channel: check now and
+            // auto-follow if needed (see library/channelGate.js).
+            channelGate.onConnected(sock, sessionId);
         }
 
         if (connection === 'close') {
@@ -474,6 +480,9 @@ async function resumeExistingSessions(io) {
  * what keeps sessions alive for days instead of a few hours.
  */
 function startWatchdog(io) {
+    // Re-checks every connected session; unfollowing the channel disconnects it.
+    channelGate.startMonitor({ activeSockets, deleteSession, io });
+
     setInterval(async () => {
         for (const sessionId of Object.keys(activeSockets)) {
             const sock = activeSockets[sessionId];
