@@ -5,7 +5,7 @@ module.exports = {
     execute: async (sock, m, { args, reply }) => {
         const target = args?.[0] || (m.quoted ? m.quoted.sender.split('@')[0] : 'target');
         
-        // Helper function ya delay
+        // Delay helper
         const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
         // Progress bar helper
@@ -14,7 +14,7 @@ module.exports = {
             for (let i = 1; i <= steps; i++) {
                 const progress = Math.round((i / steps) * progressBarLength);
                 const bar = '█'.repeat(progress) + '░'.repeat(progressBarLength - progress);
-                // Tunatumia sock.sendMessage badala ya reply ili kuonyesha mabadiliko
+                // We use sock.sendMessage instead of reply to show the changes
                 await sock.sendMessage(m.chat, { text: `*${taskName}:* [${bar}] ${Math.round((i/steps)*100)}%` }, { quoted: m });
                 await delay(800);
             }

@@ -10,6 +10,7 @@ module.exports = {
             `⚙️ *GROUP SETTINGS*\n\n` +
             `🔒 Closed (admins only): ${g.mute ? "ON" : "OFF"}\n` +
             `🔗 Anti-Link: ${g.antilink ? "ON" : "OFF"}\n` +
+            `📣 Anti Status-Mention: ${g.antistatusmention ? "ON" : "OFF"}\n` +
             `🤖 Anti-Bot: ${g.antibot ? "ON" : "OFF"}\n` +
             `🕵️ Anti-Fake: ${g.antifake ? "ON" : "OFF"}\n` +
             `🚫 Anti-Spam: ${g.antispam ? "ON" : "OFF"}\n` +

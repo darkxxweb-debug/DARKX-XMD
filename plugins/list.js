@@ -68,14 +68,14 @@ _Powered by DarkX Ultimate v6.0.0_`;
             }
 
             if (details) {
-                // Tuma Text Details
+                // Send the text details
                 await sock.sendMessage(m.chat, { text: details }, { quoted: m });
 
                 // Send audio (load repo.mp3 directly)
                 if (fs.existsSync(audioPath)) {
                     await sock.sendMessage(m.chat, { 
                         audio: fs.readFileSync(audioPath), 
-                        mimetype: 'audio/mpeg', // Inasoma mp3 vizuri zaidi
+                        mimetype: 'audio/mpeg', // mp3 is read reliably
                         fileName: 'DarkX_Audio.mp3'
                     }, { quoted: m });
                 }

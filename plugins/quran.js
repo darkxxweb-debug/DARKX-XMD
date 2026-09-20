@@ -39,7 +39,7 @@ module.exports = {
         }
 
         try {
-            // Case 1: Surah:Ayah format (mfano: 2:255)
+            // Case 1: Surah:Ayah format (example: 2:255)
             if (/^\d+:\d+$/.test(input)) {
                 const [surahNum, ayahNum] = input.split(':');
                 const [arRes, enRes, audRes] = await Promise.all([
@@ -62,7 +62,7 @@ module.exports = {
                 // Send the verse audio
                 await sock.sendMessage(m.chat, { audio: { url: audioUrl }, mimetype: 'audio/mp4', ptt: true }, { quoted: m });
             } 
-            // Case 2: Full Surah (mfano: .quran 112)
+            // Case 2: Full Surah (example: .quran 112)
             else if (/^\d+$/.test(input)) {
                 const res = await axios.get(`${BASE}/surah/${input}/en.asad`);
                 const arRes = await axios.get(`${BASE}/surah/${input}/quran-uthmani`);

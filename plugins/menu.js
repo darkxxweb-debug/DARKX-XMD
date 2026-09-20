@@ -2,43 +2,39 @@
 
 const fs = require("fs");
 const path = require("path");
-
-const NEWSLETTER = {
-    newsletterJid: "120363427307889741@newsletter",
-    newsletterName: "DARKX ULTIMATE",
-    serverMessageId: 1
-};
-
-const CTX = {
-    forwardingScore: 999,
-    isForwarded: true,
-    forwardedNewsletterMessageInfo: NEWSLETTER
-};
+const { menuImagePath } = require("../library/settingsStore");
 
 const CAT_EMOJI = {
     MAIN: "🏠", OWNER: "👑", GROUP: "👥", DOWNLOAD: "📥", DOWNLOADER: "📥",
     AI: "🤖", FUN: "🎮", GAMES: "🎮", TOOLS: "🛠", SEARCH: "🔎",
     CONVERTER: "🔄", STICKER: "🎭", MUSIC: "🎵", ANIME: "🌸",
-    IMAGE: "🖼", RELIGION: "🕌", OTHER: "📦"
+    IMAGE: "🖼", RELIGION: "🕌", BUSINESS: "💼", INFO: "ℹ️", OTHER: "📦"
 };
 const emo = (c) => CAT_EMOJI[c] || "🔹";
 
+// ---- Command list cache: plugins are scanned at most once per minute ----
+let cache = null;
 function loadCategories(pluginFolder) {
-    const files = fs.readdirSync(pluginFolder).filter(f => f.endsWith(".js"));
+    if (cache && Date.now() - cache.at < 60_000) return cache.data;
+
+    const files = fs.readdirSync(pluginFolder).filter((f) => f.endsWith(".js"));
     const categories = {};
+    let total = 0;
     for (const file of files) {
         try {
-            const p = path.join(pluginFolder, file);
-            delete require.cache[require.resolve(p)];
-            const plugin = require(p);
-            if (!plugin.command || plugin.ownerOnly === true) continue;
+            const plugin = require(path.join(pluginFolder, file));
+            if (!plugin.command) continue;
             const name = Array.isArray(plugin.command) ? plugin.command[0] : plugin.command;
-            const cat = (plugin.category || "OTHER").toUpperCase();
+            const cat = String(plugin.category || "OTHER").toUpperCase();
             (categories[cat] = categories[cat] || []).push(name);
+            total++;
         } catch { continue; }
     }
     for (const c in categories) categories[c].sort((a, b) => a.localeCompare(b));
-    return { categories, total: files.length };
+
+    const data = { categories, total };
+    cache = { at: Date.now(), data };
+    return data;
 }
 
 function uptime() {
@@ -46,88 +42,100 @@ function uptime() {
     return `${Math.floor(r / 3600)}h ${Math.floor((r % 3600) / 60)}m ${Math.floor(r % 60)}s`;
 }
 
+// ---- Guard: one reply per incoming message, no matter how often we are called ----
+const handled = new Set();
+function firstTime(id) {
+    if (!id) return true;
+    if (handled.has(id)) return false;
+    handled.add(id);
+    setTimeout(() => handled.delete(id), 60_000).unref?.();
+    return true;
+}
+
 module.exports = {
-    command: ["menu", "help", "mainmenu", "hali"],
+    command: ["menu", "help", "mainmenu"],
     category: "main",
 
-    execute: async (sock, m, { reply, config, args }) => {
-        try {
-            const pluginFolder = path.join(__dirname, "../plugins");
-            const imagePath = path.resolve(__dirname, "../media/repo.jpg");
-            const audioPath = path.resolve(__dirname, "../media/repo.mp3");
-            const P = config.prefix;
+    execute: async (sock, m, { reply, config, args, sessionId }) => {
+        if (!firstTime(`${sessionId}|${m.key?.id}`)) return;
 
-            const image = fs.existsSync(imagePath)
-                ? fs.readFileSync(imagePath)
-                : { url: "https://files.catbox.moe/pc5uec.png" };
+        try {
+            const pluginFolder = path.join(__dirname);
+            const P = config.prefix;
 
             const { categories, total } = loadCategories(pluginFolder);
             const catNames = Object.keys(categories).sort();
 
-            // Input ya user: .menu group  au  .menu 2
-            let input = (args && args.length
-                ? args.join(" ")
-                : (m.text || m.body || "").trim().split(/\s+/).slice(1).join(" ")
-            ).trim().toUpperCase();
+            // What the user typed after the command:  .menu group   or   .menu 2
+            let input = (args && args.length ? args.join(" ") : "").trim().toUpperCase();
+            if (/^\d+$/.test(input)) input = catNames[parseInt(input, 10) - 1] || input;
 
-            if (/^\d+$/.test(input)) input = catNames[parseInt(input) - 1] || input;
-
-            const send = async (caption) => {
-                try {
-                    await sock.sendMessage(m.chat, { image, caption, contextInfo: CTX }, { quoted: m });
-                } catch (e) {
-                    console.error("IMAGE SEND FAIL:", e.message);
-                    await sock.sendMessage(m.chat, { text: caption, contextInfo: CTX }, { quoted: m });
-                }
+            // The forwarded-channel tag uses the SAME channel the bot auto-follows.
+            const contextInfo = {
+                forwardingScore: 999,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: config.channelJid,
+                    newsletterName: config.channelName,
+                    serverMessageId: 1,
+                },
             };
 
-            // ═════════ SUB MENU ═════════
+            // Menu image: only when the user set one on the web (uploaded file first, then link).
+            const filePath = menuImagePath(sessionId);
+            let image = null;
+            if (filePath) image = fs.readFileSync(filePath);
+            else if (config.menuImageUrl) image = { url: config.menuImageUrl };
+
+            const send = async (caption) => {
+                if (image) {
+                    try {
+                        return await sock.sendMessage(m.chat, { image, caption, contextInfo }, { quoted: m });
+                    } catch (e) {
+                        console.error("MENU IMAGE SEND FAILED:", e.message);
+                    }
+                }
+                return sock.sendMessage(m.chat, { text: caption, contextInfo }, { quoted: m });
+            };
+
+            // ═════════ CATEGORY MENU ═════════
             if (input && categories[input]) {
                 const cmds = categories[input];
-                let t = `╭━━━━━━━━━━━━━━━━━━╮\n`;
-                t += `┃ ${emo(input)} *${input} MENU*\n`;
-                t += `┃ 📂 *Commands* : *${cmds.length}*\n`;
-                t += `╰━━━━━━━━━━━━━━━━━━╯\n\n`;
-                for (const c of cmds) t += `  ▸ *${P}${c}*\n`;
-                t += `\n━━━━━━━━━━━━━━━━━━\n`;
-                t += `↩️ *Rudi menu kuu:* *${P}menu*\n`;
-                t += `⚡ _${config.watermark}_`;
+                let t = `┏━━━━━━━━━━━━━━━━━━━━┓\n`;
+                t += `   ${emo(input)}  *${input}*\n`;
+                t += `┗━━━━━━━━━━━━━━━━━━━━┛\n`;
+                t += `  ${cmds.length} command${cmds.length === 1 ? "" : "s"}\n\n`;
+                for (const c of cmds) t += `  ⌁ ${P}${c}\n`;
+                t += `\n─────────────────────\n`;
+                t += `↩️ Back: *${P}menu*\n`;
+                t += `_${config.watermark}_`;
                 return await send(t);
             }
 
-            // ═════════ MENU KUU ═════════
-            let t = `╭━━━━━━━━━━━━━━━━━━╮\n`;
-            t += `┃ 🤖 *${config.botName}*\n`;
-            t += `╰━━━━━━━━━━━━━━━━━━╯\n\n`;
-            t += `👤 *Owner*    : *${config.ownerName}*\n`;
-            t += `📅 *Date*     : *${new Date().toLocaleDateString()}*\n`;
-            t += `⏱ *Runtime*  : *${uptime()}*\n`;
-            t += `📂 *Commands* : *${total}*\n`;
-            t += `📶 *Status*   : *Online* 🟢\n\n`;
-            t += `━━━━━〔 *📜 CATEGORIES* 〕━━━━━\n\n`;
-            catNames.forEach((c, i) => {
-                t += `*${i + 1}.* ${emo(c)} *${c}* ➜ _${categories[c].length}_\n`;
-            });
-            t += `\n━━━━━━━━━━━━━━━━━━\n`;
-            t += `👉 *Fungua category:*\n`;
-            t += `   *${P}menu <jina>*  au  *${P}menu <namba>*\n`;
-            t += `   _mfano:_ *${P}menu ${catNames[0].toLowerCase()}*  au  *${P}menu 1*\n`;
-            t += `━━━━━━━━━━━━━━━━━━\n`;
-            t += `⚡ _${config.watermark}_`;
+            // ═════════ MAIN MENU ═════════
+            let t = "";
+            if (input) t += `❌ Category *${input}* was not found.\n\n`;
 
-            if (input) {
-                t = `❌ *Category "${input}" haipo.*\n\n` + t;
-            }
+            t += `┏━━━━━━━━━━━━━━━━━━━━┓\n`;
+            t += `   ✦ *${String(config.botName).toUpperCase()}* ✦\n`;
+            t += `┗━━━━━━━━━━━━━━━━━━━━┛\n\n`;
+            t += `┌─ ⌬ *BOT INFO*\n`;
+            t += `│ 👤 Owner    : ${config.ownerName}\n`;
+            t += `│ 🔣 Prefix   : ${P}\n`;
+            t += `│ ⏱ Uptime   : ${uptime()}\n`;
+            t += `│ 📂 Commands : ${total}\n`;
+            t += `└─ 🟢 Online\n\n`;
+            t += `┌─ ⌬ *CATEGORIES*\n`;
+            catNames.forEach((c, i) => {
+                t += `│ ${i + 1}. ${emo(c)} ${c} (${categories[c].length})\n`;
+            });
+            t += `└──────────────\n\n`;
+            t += `👉 Open a category:\n`;
+            t += `   *${P}menu <name>*  or  *${P}menu <number>*\n`;
+            t += `   e.g. *${P}menu ${catNames[0].toLowerCase()}*  or  *${P}menu 1*\n\n`;
+            t += `_${config.watermark}_`;
 
             await send(t);
-
-            if (fs.existsSync(audioPath)) {
-                await sock.sendMessage(m.chat, {
-                    audio: fs.readFileSync(audioPath),
-                    mimetype: "audio/mpeg"
-                }, { quoted: m });
-            }
-
         } catch (err) {
             console.error("MENU ERROR:", err);
             reply("❌ Menu failed to load.");

@@ -3,11 +3,11 @@ const axios = require("axios");
 module.exports = {
     command: ["getpp", "getdp", "pp"],
     category: "tools",
-    description: "Pata profile picture ya user (mention, reply, au namba). Usage: .getpp @user",
+    description: "Get a user's profile picture (mention, reply or number). Usage: .getpp @user",
 
     execute: async (sock, m, { q, reply, config }) => {
         try {
-            // Tambua target
+            // Detect the target
             let targetJid;
 
             const mentioned = m.message?.extendedTextMessage?.contextInfo?.mentionedJid;
@@ -29,7 +29,7 @@ module.exports = {
             try {
                 ppUrl = await sock.profilePictureUrl(targetJid, "image");
             } catch (e) {
-                ppUrl = DEFAULT_PIC; // hana DP au ame-hide
+                ppUrl = DEFAULT_PIC; // no profile picture, or it is hidden
             }
 
             const caption =
@@ -49,7 +49,7 @@ module.exports = {
 
         } catch (err) {
             console.error("GETPP ERROR:", err);
-            reply("❌ Imeshindwa kupata profile picture. Jaribu tena.");
+            reply("❌ Could not get the profile picture. Please try again.");
         }
     }
 };

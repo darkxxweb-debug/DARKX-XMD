@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 module.exports = {
-    command: ["quote", "nukuu"],
+    command: ["quote"],
     execute: async (sock, m, args) => {
         try {
             await sock.sendMessage(m.chat, { react: { text: "📜", key: m.key } });

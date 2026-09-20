@@ -11,25 +11,25 @@ module.exports = {
         try {
             if (!text) {
                 return await sock.sendMessage(from, { 
-                    text: `❌ Tafadhali weka jina la video au link!\nMfano: *${config.prefix}video* funny cats` 
+                    text: `❌ Please enter a video name or link!\nExample: *${config.prefix}video* funny cats` 
                 }, { quoted: m });
             }
 
-            // Reaction ya kuanza
+            // Starting reaction
             await sock.sendMessage(from, { react: { text: "⏳", key: m.key } });
 
             let videoUrl = '';
             let videoTitle = '';
             let videoThumbnail = '';
 
-            // Angalia kama ni URL au Jina
+            // Check whether it is a URL or a name
             if (text.startsWith('http://') || text.startsWith('https://')) {
                 videoUrl = text;
             } else {
                 const { videos } = await yts(text);
                 if (!videos || videos.length === 0) {
                     await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
-                    return await sock.sendMessage(from, { text: "⚠️ Video haijapatikana!" });
+                    return await sock.sendMessage(from, { text: "⚠️ Video not found!" });
                 }
                 videoUrl = videos[0].url;
                 videoTitle = videos[0].title;
@@ -39,29 +39,29 @@ module.exports = {
             // Downloading reaction
             await sock.sendMessage(from, { react: { text: "⬇️", key: m.key } });
 
-            // API ya Hector Manuel
+            // Hector Manuel API
             const apiUrl = `https://yt-dl.officialhectormanuel.workers.dev/?url=${encodeURIComponent(videoUrl)}`;
             const response = await axios.get(apiUrl);
 
             if (response.status !== 200 || !response.data.status) {
                 await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
-                return await sock.sendMessage(from, { text: "🚫 API imeshindwa kupata video. Jaribu tena baadae." });
+                return await sock.sendMessage(from, { text: "🚫 The API could not get the video. Please try again later." });
             }
 
             const data = response.data;
             const title = data.title || videoTitle || 'YouTube Video';
-            const videoDownloadUrl = data.videos["360"]; // Tunachukua quality ya 360p
+            const videoDownloadUrl = data.videos["360"]; // We take the 360p quality
 
             if (!videoDownloadUrl) {
                 await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
-                return await sock.sendMessage(from, { text: "⚠️ Njia ya kupakua video haijapatikana kwenye hii quality!" });
+                return await sock.sendMessage(from, { text: "⚠️ No download link is available for this quality!" });
             }
 
-            // KUPAKUA VIDEO KUWA BUFFER ILI KUEPUKA TATIZO LA FORMAT
+            // DOWNLOAD THE VIDEO AS A BUFFER TO AVOID FORMAT PROBLEMS
             const videoResponse = await axios.get(videoDownloadUrl, { responseType: 'arraybuffer' });
             const videoBuffer = Buffer.from(videoResponse.data, 'binary');
 
-            // Tuma video ikiwa imara kama Buffer
+            // Send the video as a buffer (more reliable)
             await sock.sendMessage(from, {
                 video: videoBuffer,
                 mimetype: 'video/mp4',
@@ -75,7 +75,7 @@ module.exports = {
         } catch (error) {
             console.error('Error in video command:', error);
             await sock.sendMessage(from, { react: { text: "❌", key: m.key } });
-            await sock.sendMessage(from, { text: "❌ Imefeli kudownload au kutuma video." });
+            await sock.sendMessage(from, { text: "❌ Failed to download or send the video." });
         }
     }
 };

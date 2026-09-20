@@ -1,7 +1,7 @@
 module.exports = {
     command: ['tagall', 'everyone', 'all'],
     category: 'admin',
-    description: 'Tag members wote wa group',
+    description: 'Tag all members of the group',
     isGroup: true,
     isAdmin: true,
     execute: async (sock, m, { participants, text, reply }) => {
@@ -10,7 +10,7 @@ module.exports = {
             let messageText = `🔊 *TAG ALL — DarkX Ultimate*\n\n`;
             messageText += `*Message:* ${text ? text : 'No message provided'}\n\n`;
 
-            // Kutengeneza list ya ma-tag
+            // Build the list of tags
             for (let mem of participants) {
                 messageText += `🔹 @${mem.id.split('@')[0]}\n`;
             }

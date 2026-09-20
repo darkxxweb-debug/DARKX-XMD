@@ -10,7 +10,7 @@ module.exports = {
 
             let category = text ? text.trim().toLowerCase() : 'waifu';
 
-            // Fluxpoint API ina categories nyingi za NSFW anime
+            // The Fluxpoint API has many NSFW anime categories
             const validCats = ['ass', 'boobs', 'blowjob', 'pussy', 'cum', 'thighs', 'lewd', 'solo', 'tentacle'];
             if (!validCats.includes(category) && category !== 'waifu') {
                 category = 'lewd'; // default
@@ -26,7 +26,7 @@ module.exports = {
                 imageUrl = res2.data.url;
             }
 
-            if (!imageUrl) return reply("❌ Category hiyo haipo au imeshindwa. Jaribu: blowjob, ass, boobs, thighs, lewd");
+            if (!imageUrl) return reply("❌ That category does not exist or the request failed. Try: blowjob, ass, boobs, thighs, lewd");
 
             await sock.sendMessage(m.chat, {
                 image: { url: imageUrl },

@@ -3,9 +3,9 @@ const axios = require('axios');
 module.exports = {
     command: ['movie', 'film', 'imdb'],
     category: 'info',
-    description: 'Tafuta taarifa za muvi, cast, na rating',
+    description: 'Search movie info, cast and rating',
     execute: async (sock, m, { args, reply, text }) => {
-        const OMDB_KEY = 'trilogy'; // Key ya bure ya OMDB
+        const OMDB_KEY = 'trilogy'; // Free OMDB key
         const input = text.trim();
 
         if (!input) {
@@ -15,7 +15,7 @@ module.exports = {
         await sock.sendMessage(m.chat, { react: { text: '🔍', key: m.key } });
 
         try {
-            // Kutenganisha mwaka kama upo (mfano: Jawan 2023)
+            // Split the year if present (example: Jawan 2023)
             const yearMatch = input.match(/\b(19|20)\d{2}\b/);
             const year = yearMatch ? yearMatch[0] : '';
             const title = input.replace(/\b(19|20)\d{2}\b/, '').trim();
@@ -40,7 +40,7 @@ module.exports = {
                 return reply(`❌ Could not find a movie called: *${input}*`);
             }
 
-            // Kutengeneza mastaa ya rating (IMDB Stars)
+            // Build the rating stars (IMDB Stars)
             const imdbStars = data.imdbRating !== 'N/A' 
                 ? '⭐'.repeat(Math.round(parseFloat(data.imdbRating) / 2)) 
                 : 'N/A';
