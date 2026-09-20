@@ -1,97 +1,89 @@
-const fs = require("fs");
-const path = require("path");
+"use strict";
+
+/**
+ * .repo — bot info card.
+ *  - No audio, no local media files.
+ *  - The picture is the profile picture (DP) of the person who asked.
+ *    If the command replies to someone, that person's DP and name are used.
+ *  - The link is the real web address of the running deployment.
+ *  - The message is forwarded from the bot's channel (config.channelJid).
+ */
+
+// Finds the real public URL of this deployment (host env vars first).
+function detectWebUrl(config) {
+    const env = process.env;
+    const clean = (u) => String(u || "").trim().replace(/\/+$/, "");
+    const withHttps = (h) => (/^https?:\/\//i.test(h) ? clean(h) : `https://${clean(h)}`);
+
+    if (env.WEB_URL) return withHttps(env.WEB_URL);
+    if (env.RENDER_EXTERNAL_URL) return withHttps(env.RENDER_EXTERNAL_URL);
+    if (env.RENDER_EXTERNAL_HOSTNAME) return withHttps(env.RENDER_EXTERNAL_HOSTNAME);
+    if (env.RAILWAY_PUBLIC_DOMAIN) return withHttps(env.RAILWAY_PUBLIC_DOMAIN);
+    if (env.HEROKU_APP_NAME) return `https://${env.HEROKU_APP_NAME}.herokuapp.com`;
+    if (env.VERCEL_URL) return withHttps(env.VERCEL_URL);
+    if (env.KOYEB_PUBLIC_DOMAIN) return withHttps(env.KOYEB_PUBLIC_DOMAIN);
+    return clean(config.repoUrl);
+}
 
 module.exports = {
     command: ["repo", "script", "sc"],
     category: "info",
 
-    execute: async (sock, m, { reply, config }) => {
+    execute: async (sock, m, { reply, config, pushName }) => {
         try {
-            const imagePath = path.join(__dirname, "../media/repo.jpg");
-            const audioPath = path.join(__dirname, "../media/repo.mp3");
+            // Who is the card for? The person replied to, otherwise the sender.
+            const target = m.quoted?.sender || m.sender;
+            const isSelf = target === m.sender;
+            const number = String(target).split("@")[0];
+            const name = isSelf && pushName ? pushName : `@${number}`;
 
-            const repoLink = config.repoUrl || "https://darkx-ultimate.onrender.com";
-            const ownerNumber = config.ownerNumber;
-            const ownerName = config.ownerName;
-            const botName = `${config.botName} 👑`;
+            // DP of that person (null if they have none or it is hidden)
+            const ppUrl = await sock.profilePictureUrl(target, "image").catch(() => null);
 
-            // SEND AUDIO FIRST
-            if (fs.existsSync(audioPath)) {
-                await sock.sendMessage(
-                    m.chat,
-                    {
-                        audio: fs.readFileSync(audioPath),
-                        mimetype: "audio/mpeg",
-                        ptt: false
-                    },
-                    { quoted: m }
-                );
-            }
+            const repoLink = detectWebUrl(config);
 
-            const caption = `
-*╭━━━〔 👑 D A R K X   U L T I M A T E 👑 〕━━━⬣*
-*┃ ⚡ BOT NAME:* ${botName}
-*┃ 👑 OWNER:* ${ownerName}
-*┃ 📞 NUMBER:* wa.me/${ownerNumber}
-*┃ 🌐 VERSION:* v3.0.0
-*┃ 🚀 STATUS:* ONLINE
-*┃ 🧠 ENGINE:* Smart Auto Response
-*┃ 🔥 TYPE:* WhatsApp Assistant Bot
-*╰━━━━━━━━━━━━━━━━━━⬣*
+            const caption =
+`╭━━━〔 👑 *${String(config.botName).toUpperCase()}* 〕━━━⬣
+┃ 👋 *Requested for:* ${name}${isSelf && pushName ? ` (@${number})` : ""}
+┃ 👑 *Owner:* ${config.ownerName}
+┃ 🚀 *Status:* Online
+╰━━━━━━━━━━━━━━━━━━⬣
 
-*╭━━━〔 ⚔️ FEATURES LIST ⚔️ 〕━━━⬣*
-*┃ ⬡ Fast Response Speed*
-*┃ ⬡ Auto AI Chat Mode*
-*┃ ⬡ Anti Delete System*
-*┃ ⬡ Stylish Menu System*
-*┃ ⬡ Plugin Commands*
-*┃ ⬡ Group Management*
-*┃ ⬡ Media Downloader*
-*┃ ⬡ Stable Connection*
-*┃ ⬡ Owner Controls*
-*┃ ⬡ Clean Performance*
-*╰━━━━━━━━━━━━━━━━━━⬣*
+╭━━━〔 ⚔️ *FEATURES* 〕━━━⬣
+┃ ⬡ Group management (anti-link, anti status-mention)
+┃ ⬡ Anti-delete for text and media
+┃ ⬡ Media downloaders
+┃ ⬡ Sticker and converter tools
+┃ ⬡ Web dashboard and settings
+╰━━━━━━━━━━━━━━━━━━⬣
 
-*╭━━━〔 📂 CONTROL PANEL 📂 〕━━━⬣*
-*┃ 🔗 Web / Dashboard:*
+🔗 *Dashboard:*
 ${repoLink}
-*╰━━━━━━━━━━━━━━━━━━⬣*
 
-> _Powerful • Fast • Clean • DarkX Ultimate Lab_ 🔥
-`;
+> _${config.watermark}_`;
 
-            // SEND IMAGE + INFO
-            const imageBuffer = fs.existsSync(imagePath) ? fs.readFileSync(imagePath) : null;
-            await sock.sendMessage(
-                m.chat,
-                {
-                    image: imageBuffer || { url: "https://files.catbox.moe/pc5uec.png" },
-                    caption: caption,
-                    contextInfo: {
-                        forwardingScore: 999,
-                        isForwarded: true,
-                        externalAdReply: {
-                            title: "DARKX ULTIMATE 👑",
-                            body: "Official Dashboard & Bot Info",
-                            mediaType: 1,
-                            thumbnail: imageBuffer || undefined,
-                            sourceUrl: repoLink,
-                            renderLargerThumbnail: true,
-                            showAdAttribution: true
-                        }
-                    }
+            const contextInfo = {
+                mentionedJid: [target],
+                forwardingScore: 999,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: config.channelJid,
+                    newsletterName: config.channelName,
+                    serverMessageId: 1,
                 },
-                { quoted: m }
-            );
+            };
 
+            if (ppUrl) {
+                try {
+                    return await sock.sendMessage(m.chat, { image: { url: ppUrl }, caption, contextInfo }, { quoted: m });
+                } catch (e) {
+                    console.error("REPO IMAGE SEND FAILED:", e.message);
+                }
+            }
+            await sock.sendMessage(m.chat, { text: caption, contextInfo }, { quoted: m });
         } catch (err) {
             console.error("Repo Command Error:", err);
-
-            await sock.sendMessage(
-                m.chat,
-                { text: "❌ Repo command failed." },
-                { quoted: m }
-            );
+            reply("❌ Repo command failed.");
         }
-    }
+    },
 };
