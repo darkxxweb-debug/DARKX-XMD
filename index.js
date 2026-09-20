@@ -44,14 +44,14 @@ let baileysReady = null;
 const loadBaileys = () => {
     if (!baileysReady) {
         baileysReady = import('@whiskeysockets/baileys').then((baileys) => {
-            // Debug: onyesha exact shape ya module kwenye logs (Render).
-            // Unaweza kuiondoa baadaye ikiwa kila kitu kinafanya kazi vizuri.
+            // Debug: print the exact shape of the module in the logs (Render).
+            // You can remove this later once everything works fine.
             console.log(chalk.cyan('Baileys module keys:'), Object.keys(baileys));
 
-            // Baadhi ya matoleo ya baileys hu-export makeWASocket kama
-            // `default`, mengine kama named export `makeWASocket`, na
-            // mengine (kwa sababu ya CJS/ESM interop) huwa na double-wrap
-            // kwenye `default.default`. Tunachagua chochote kilicho function.
+            // Some Baileys versions export makeWASocket as `default`, others as
+            // a named export `makeWASocket`, and others (because of CJS/ESM
+            // interop) double-wrap it as `default.default`. Pick whichever
+            // one is a function.
             makeWASocket =
                 typeof baileys.default === 'function'
                     ? baileys.default
@@ -63,8 +63,8 @@ const loadBaileys = () => {
 
             if (typeof makeWASocket !== 'function') {
                 throw new Error(
-                    'makeWASocket haipatikani kwenye @whiskeysockets/baileys module. ' +
-                    'Angalia version yako kwenye package.json (angalia logs hapo juu za "Baileys module keys").'
+                    'makeWASocket was not found in the @whiskeysockets/baileys module. ' +
+                    'Check your version in package.json (see the "Baileys module keys" log above).'
                 );
             }
 
@@ -75,8 +75,8 @@ const loadBaileys = () => {
             delay = baileys.delay || baileys.default?.delay;
             makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore || baileys.default?.makeCacheableSignalKeyStore;
 
-            // Angalia kwamba kila kitu tunachohitaji kipo, la sivyo shindwa
-            // mapema badala ya kupata crash isiyoeleweka baadaye.
+            // Make sure everything we need exists, otherwise fail early
+            // instead of hitting a confusing crash later.
             const missing = [];
             if (!Browsers) missing.push('Browsers');
             if (!DisconnectReason) missing.push('DisconnectReason');
@@ -86,7 +86,7 @@ const loadBaileys = () => {
             if (!makeCacheableSignalKeyStore) missing.push('makeCacheableSignalKeyStore');
 
             if (missing.length) {
-                throw new Error(`Baileys exports zifuatazo hazikupatikana: ${missing.join(', ')}`);
+                throw new Error(`Missing Baileys exports: ${missing.join(', ')}`);
             }
         }).catch((e) => {
             console.error(chalk.red('Failed to load Baileys library:'), e);
@@ -98,6 +98,29 @@ const loadBaileys = () => {
 
 // Global auto-AI toggle (kept as a simple in-memory flag, same as before)
 let autoAi = config.autoAi || false;
+
+// --- Duplicate-message guard ---
+// A message id is processed only ONCE per session. This is what stops the
+// bot from answering the same command several times (for example when two
+// sockets for one number briefly overlap, or WhatsApp re-delivers a message).
+const seenMessages = new Map(); // `${session}|${chat}|${id}` -> timestamp
+function alreadySeen(sessionId, mek) {
+    const id = mek?.key?.id;
+    if (!id) return false;
+    const key = `${sessionId}|${mek.key.remoteJid}|${id}`;
+    if (seenMessages.has(key)) return true;
+    seenMessages.set(key, Date.now());
+    if (seenMessages.size > 5000) {
+        const cutoff = Date.now() - 5 * 60_000;
+        for (const [k, t] of seenMessages) {
+            if (t < cutoff) seenMessages.delete(k);
+        }
+    }
+    return false;
+}
+
+const realType = (message) =>
+    Object.keys(message || {}).find((k) => !['messageContextInfo', 'senderKeyDistributionMessage'].includes(k));
 
 const activeSockets = {};
 const reconnectAttempts = {}; // sessionId -> consecutive failed-reconnect count
@@ -183,6 +206,15 @@ async function startBot(number, io, onPairingCode) {
     await loadBaileys();
 
     const sessionId = String(number).replace(/[^0-9]/g, '');
+
+    // Never keep two live sockets for one number: a second socket would make
+    // every command run (and every reply be sent) twice or more.
+    const previous = activeSockets[sessionId];
+    if (previous) {
+        try { previous.ev.removeAllListeners(); } catch (_) {}
+        try { previous.ws?.close?.(); } catch (_) {}
+        delete activeSockets[sessionId];
+    }
 
     const { state, saveCreds } = await useMongoAuthState(sessionId);
     const { version } = await fetchLatestBaileysVersion();
@@ -277,7 +309,8 @@ async function startBot(number, io, onPairingCode) {
             // Stop this dead socket from doing anything else / leaking listeners
             // before we spin up a fresh one for the same number.
             try { sock.ev.removeAllListeners(); } catch (_) {}
-            delete activeSockets[sessionId];
+            // Only clear the slot if it still belongs to THIS socket.
+            if (activeSockets[sessionId] === sock) delete activeSockets[sessionId];
 
             if (shouldReconnect) {
                 // Capped exponential backoff: 5s, 10s, 20s ... up to 5 minutes.
@@ -314,7 +347,10 @@ async function startBot(number, io, onPairingCode) {
             const mek = chatUpdate.messages[0];
             if (!mek?.message) return;
 
-            const msgType = Object.keys(mek.message)[0];
+            // Process each message id only once (see alreadySeen above).
+            if (alreadySeen(sessionId, mek)) return;
+
+            const msgType = realType(mek.message);
             if (msgType === 'ephemeralMessage' || msgType === 'viewOnceMessage' || msgType === 'viewOnceMessageV2') {
                 mek.message = mek.message[msgType].message;
             }
@@ -390,7 +426,7 @@ async function startBot(number, io, onPairingCode) {
             }
 
             // --- MAIN COMMAND HANDLER (plugins) ---
-            require('./message')(sock, m, chatUpdate);
+            await require('./message')(sock, m, chatUpdate);
         } catch (err) {
             console.error(chalk.red('Error in message event loop: '), err);
         }
@@ -399,6 +435,7 @@ async function startBot(number, io, onPairingCode) {
     // --- GROUP JOIN / LEAVE: welcome, goodbye, antibot, antifake ---
     sock.ev.on('group-participants.update', async ({ id: chat, participants, action }) => {
         try {
+            require('./library/groupGuard').dropGroupMeta(sock, chat); // admin list may have changed
             if (!global.db) return;
             if (typeof global.db.groups[chat] !== 'object') global.db.groups[chat] = {};
             const group = global.db.groups[chat];

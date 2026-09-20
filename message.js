@@ -13,11 +13,79 @@ const chalk = require("chalk");
 const baseConfig = require("./settings/config");
 const { getSettings } = require("./library/settingsStore");
 const { synchronizeData } = require("./library/database");
+const antideleteStore = require("./library/antideleteStore");
+const guard = require("./library/groupGuard");
 
-// Store for anti-delete cache (per process, shared across sessions is fine)
-const recentMessages = new Map();
+const MEDIA_TYPES = ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"];
 
-const LINK_REGEX = /(https?:\/\/|www\.)[^\s]+|chat\.whatsapp\.com\/[^\s]+/i;
+// ---------------------------------------------------------------------------
+// Plugin index: every plugin file is loaded ONCE and mapped by command name.
+// (Before, all plugin files were re-read from disk on every single command.)
+// ---------------------------------------------------------------------------
+let pluginMap = null;
+function loadPlugins() {
+    if (pluginMap) return pluginMap;
+    const map = new Map();
+    const pluginFolder = path.join(__dirname, "plugins");
+    if (!fs.existsSync(pluginFolder)) return map;
+
+    for (const file of fs.readdirSync(pluginFolder).filter((f) => f.endsWith(".js"))) {
+        try {
+            const plugin = require(path.join(pluginFolder, file));
+            const names = Array.isArray(plugin.command) ? plugin.command : [plugin.command];
+            for (const name of names) {
+                if (!name) continue;
+                const key = String(name).toLowerCase();
+                if (!map.has(key)) map.set(key, { plugin, file });
+            }
+        } catch (err) {
+            console.error(chalk.red(`[PLUGIN LOAD ERROR] ${file}:`), err.message);
+        }
+    }
+    pluginMap = map;
+    return map;
+}
+
+// ---------------------------------------------------------------------------
+// Anti-delete: send the report + any media that is still on disk
+// ---------------------------------------------------------------------------
+async function sendDeletedReport(sock, sessionId, config, chat, deleteKey, deleted) {
+    const deletedSender = (deleted.sender || deleteKey.participant || "").split("@")[0];
+    const hasMedia = !!deleted.mediaPath;
+
+    const report =
+        `⚠️ *MESSAGE DELETED*\n\n` +
+        `👤 *Sender:* ${deleted.pushName || "Unknown"}\n` +
+        `📱 *Number:* ${deletedSender}\n` +
+        `📝 *Message:* ${deleted.body || (hasMedia ? "📎 Media (restored below)" : "No text content")}\n` +
+        `🕐 *Deleted at:* ${new Date().toLocaleTimeString()}`;
+
+    const targets = [chat];
+    if (config.antideleteNotifyOwner && config.ownerNumber) {
+        targets.push(config.ownerNumber.replace(/[^0-9]/g, "") + "@s.whatsapp.net");
+    }
+
+    let buffer = null;
+    if (hasMedia) {
+        try { buffer = await fs.promises.readFile(deleted.mediaPath); } catch { buffer = null; }
+    }
+
+    for (const jid of targets) {
+        await sock.sendMessage(jid, {
+            text: jid === chat ? report : `🔴 *ANTI-DELETE REPORT*\n\n${report}`,
+        }).catch(() => {});
+
+        if (!buffer) continue;
+        const mime = deleted.mimetype || "";
+        let content;
+        if (deleted.mtype === "stickerMessage") content = { sticker: buffer };
+        else if (deleted.mtype === "documentMessage") content = { document: buffer, mimetype: mime, fileName: deleted.fileName || "file" };
+        else if (/video/.test(mime)) content = { video: buffer, caption: deleted.caption || "" };
+        else if (/audio/.test(mime)) content = { audio: buffer, mimetype: mime || "audio/mpeg" };
+        else content = { image: buffer, caption: deleted.caption || "" };
+        await sock.sendMessage(jid, content).catch(() => {});
+    }
+}
 
 module.exports = async (sock, m, chatUpdate) => {
     try {
@@ -36,29 +104,30 @@ module.exports = async (sock, m, chatUpdate) => {
         const text = args.join(" ");
         const q = text;
 
-        // --- Anti-delete: remember the message (+ media) so we can restore it later ---
-        const MEDIA_TYPES = ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"];
-        const isMediaMsg = MEDIA_TYPES.includes(m.mtype);
-        if (m.key && !fromMe && (body || isMediaMsg)) {
-            const storageKey = `${chat}_${m.key.id}`;
-            const entry = { body, sender, pushName, chat, timestamp: Date.now(), media: null };
-            recentMessages.set(storageKey, entry);
-            setTimeout(() => recentMessages.delete(storageKey), 10 * 60 * 1000);
+        const isGroup = chat.endsWith("@g.us");
+        const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+        const ownerJid = String(config.ownerNumber || "").replace(/[^0-9]/g, "") + "@s.whatsapp.net";
+        const isOwner = !!fromMe || [ownerJid, botId].includes(sender);
 
-            // Only bother downloading media if anti-delete is actually on for this session.
-            if (config.antidelete && isMediaMsg) {
+        const reply = (teks, opts = {}) => sock.sendMessage(chat, { text: teks, ...opts }, { quoted: m });
+
+        // -------------------------------------------------------------------
+        // Anti-delete: remember text (long) and media (disk, 5 minutes)
+        // -------------------------------------------------------------------
+        const isMediaMsg = MEDIA_TYPES.includes(m.mtype);
+        if (config.antidelete && m.key?.id && !fromMe && (body || isMediaMsg)) {
+            antideleteStore.saveText(sessionId, chat, m.key.id, {
+                body, sender, pushName, chat, mtype: m.mtype, timestamp: Date.now(),
+                caption: m.msg?.caption || "", fileName: m.msg?.fileName || "",
+            });
+
+            if (isMediaMsg) {
                 (async () => {
                     try {
                         const { getMediaFromMessage } = require("./library/media");
                         const media = await getMediaFromMessage(sock, { msg: m.msg, message: m.message });
                         if (media) {
-                            entry.media = media; // kept in memory for the same 10-minute window
-                            if (config.mongoUrl) {
-                                const { saveMedia } = require("./library/mediaVault");
-                                await saveMedia(sessionId, "antidelete", {
-                                    buffer: media.buffer, mimetype: media.mimetype, sender, chat,
-                                });
-                            }
+                            await antideleteStore.saveMedia(sessionId, chat, m.key.id, media.buffer, media.mimetype);
                         }
                     } catch (e) {
                         console.error("Anti-delete media cache error:", e.message);
@@ -67,39 +136,51 @@ module.exports = async (sock, m, chatUpdate) => {
             }
         }
 
-        // --- Anti-delete: detect a delete event ---
-        if (chatUpdate?.type === "notify") {
-            const msg = chatUpdate.messages?.[0];
-            const proto = msg?.message?.protocolMessage;
-            if (proto && proto.type === 0 && config.antidelete) {
-                const deleteKey = proto.key;
-                const storageKey = `${deleteKey.remoteJid}_${deleteKey.id}`;
-                const deleted = recentMessages.get(storageKey);
-                if (deleted) {
-                    const deletedSender = (deleted.sender || proto.sender || deleteKey.participant || "").split("@")[0];
-                    const report =
-                        `⚠️ *MESSAGE DELETED*\n\n` +
-                        `👤 *Sender:* ${deleted.pushName || "Unknown"}\n` +
-                        `📱 *Number:* ${deletedSender}\n` +
-                        `📝 *Message:* ${deleted.body || (deleted.media ? "📎 *Media (restored below)*" : "📝 *No text content*")}\n` +
-                        `🕐 *Deleted at:* ${new Date().toLocaleTimeString()}`;
+        // --- Anti-delete: a "delete for everyone" event arrived ---
+        const proto = m.message?.protocolMessage;
+        if (proto && proto.type === 0 && proto.key && config.antidelete) {
+            const deleteKey = proto.key;
+            const targetChat = deleteKey.remoteJid || chat;
+            const deleted = antideleteStore.get(sessionId, targetChat, deleteKey.id);
+            if (deleted) {
+                await sendDeletedReport(sock, sessionId, config, targetChat, deleteKey, deleted);
+                antideleteStore.remove(sessionId, targetChat, deleteKey.id);
+            }
+            return;
+        }
 
-                    const targets = [deleteKey.remoteJid];
-                    if (config.antideleteNotifyOwner) {
-                        targets.push(config.ownerNumber.replace(/[^0-9]/g, "") + "@s.whatsapp.net");
-                    }
+        // -------------------------------------------------------------------
+        // Group protections that must run even when the message has no text
+        // -------------------------------------------------------------------
+        let groupMetadata, participants, groupAdmins, isAdmin = false, isBotAdmin = false;
+        if (isGroup) {
+            groupMetadata = await guard.getGroupMeta(sock, chat);
+            if (groupMetadata) {
+                participants = groupMetadata.participants || [];
+                groupAdmins = participants.filter((v) => !!v.admin).map((v) => v.id);
+                isAdmin = groupAdmins.includes(sender);
+                isBotAdmin = groupAdmins.includes(botId);
+            }
+        }
 
-                    for (const jid of targets) {
-                        await sock.sendMessage(jid, { text: jid === deleteKey.remoteJid ? report : `🔴 *ANTI-DELETE REPORT*\n\n${report}` }).catch(() => {});
-                        if (deleted.media) {
-                            const isVideo = /video/.test(deleted.media.mimetype || "");
-                            const isAudio = /audio/.test(deleted.media.mimetype || "");
-                            const key = isVideo ? "video" : isAudio ? "audio" : "image";
-                            await sock.sendMessage(jid, { [key]: deleted.media.buffer }).catch(() => {});
-                        }
+        // --- Anti status-mention: delete the notice immediately, remove after 3 ---
+        if (isGroup && !fromMe && guard.isStatusMention(m.message)) {
+            const group = guard.ensureGroup(chat);
+            if (config.antiStatusMention || group?.antistatusmention) {
+                if (isBotAdmin) await sock.sendMessage(chat, { delete: m.key }).catch(() => {});
+
+                if (isBotAdmin && !isAdmin && !isOwner) {
+                    const strikes = guard.addStrike(chat, sender, "status");
+                    if (strikes >= guard.MAX_STRIKES) {
+                        guard.clearStrikes(chat, sender, "status");
+                        await sock.groupParticipantsUpdate(chat, [sender], "remove").catch(() => {});
+                        await sock.sendMessage(chat, {
+                            text: `🚫 @${sender.split("@")[0]} was removed for mentioning this group in their status ${guard.MAX_STRIKES} times.`,
+                            mentions: [sender],
+                        }).catch(() => {});
                     }
-                    recentMessages.delete(storageKey);
                 }
+                return;
             }
         }
 
@@ -107,26 +188,6 @@ module.exports = async (sock, m, chatUpdate) => {
         if (!body) return;
 
         if (global.db) synchronizeData(m, sock);
-
-        // --- Group metadata / permissions ---
-        const isGroup = chat.endsWith("@g.us");
-        const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
-
-        let groupMetadata, participants, groupAdmins, isAdmin, isBotAdmin;
-        if (isGroup) {
-            groupMetadata = await sock.groupMetadata(chat).catch(() => null);
-            if (groupMetadata) {
-                participants = groupMetadata.participants || [];
-                groupAdmins = participants.filter((v) => v.admin !== null).map((v) => v.id);
-                isAdmin = groupAdmins.includes(sender);
-                isBotAdmin = groupAdmins.includes(botId);
-            }
-        }
-
-        const ownerJid = config.ownerNumber.replace(/[^0-9]/g, "") + "@s.whatsapp.net";
-        const isOwner = fromMe || [ownerJid, botId].includes(sender);
-
-        const reply = (teks) => sock.sendMessage(chat, { text: teks }, { quoted: m });
 
         // --- Private Mode: bot only obeys its owner, everyone else is ignored ---
         if (config.privateMode && !isOwner) {
@@ -140,21 +201,26 @@ module.exports = async (sock, m, chatUpdate) => {
             return;
         }
 
-        // --- Anti-link enforcement (default OFF until the owner turns it on) ---
-        if (isGroup && config.antilink && !isOwner && !isAdmin && LINK_REGEX.test(body)) {
-            try {
-                await sock.sendMessage(chat, { delete: m.key });
-                await sock.sendMessage(chat, {
-                    text: `🚫 @${sender.split("@")[0]}, links are not allowed in this group.`,
-                    mentions: [sender],
-                });
-                if (isBotAdmin) {
-                    await sock.groupParticipantsUpdate(chat, [sender], "remove").catch(() => {});
+        // --- Anti-link: delete silently (no warning), remove after 3 links ---
+        if (isGroup && !isOwner && !isAdmin && isBotAdmin && guard.hasLink(body)) {
+            const group = guard.ensureGroup(chat);
+            if (config.antilink || group?.antilink) {
+                try {
+                    await sock.sendMessage(chat, { delete: m.key }).catch(() => {});
+                    const strikes = guard.addStrike(chat, sender, "link");
+                    if (strikes >= guard.MAX_STRIKES) {
+                        guard.clearStrikes(chat, sender, "link");
+                        await sock.groupParticipantsUpdate(chat, [sender], "remove").catch(() => {});
+                        await sock.sendMessage(chat, {
+                            text: `🚫 @${sender.split("@")[0]} was removed for sending links ${guard.MAX_STRIKES} times.`,
+                            mentions: [sender],
+                        }).catch(() => {});
+                    }
+                } catch (err) {
+                    console.error(chalk.red("Anti-link error:"), err.message);
                 }
-            } catch (err) {
-                console.error(chalk.red("Anti-link error:"), err.message);
+                return;
             }
-            return;
         }
 
         // --- Media / quoted helpers passed down to plugins ---
@@ -163,39 +229,24 @@ module.exports = async (sock, m, chatUpdate) => {
 
         // --- Plugin engine ---
         if (isCmd && command) {
-            const pluginFolder = path.join(__dirname, "plugins");
-            if (!fs.existsSync(pluginFolder)) return;
+            const hit = loadPlugins().get(command);
+            if (!hit) return;
+            const { plugin, file } = hit;
 
-            const pluginFiles = fs.readdirSync(pluginFolder).filter((file) => file.endsWith(".js"));
+            if (plugin.isOwner && !isOwner) return reply(config.msg?.owner || "Owner only!");
+            if (plugin.isGroup && !isGroup) return reply(config.msg?.group || "Group only!");
+            if (plugin.isAdmin && !isAdmin && !isOwner) return reply(config.msg?.admin || "Admin only!");
+            if (plugin.isBotAdmin && !isBotAdmin) return reply(config.msg?.botAdmin || "Make me admin!");
 
-            for (const file of pluginFiles) {
-                try {
-                    const filePath = path.join(pluginFolder, file);
-                    delete require.cache[require.resolve(filePath)];
-                    const plugin = require(filePath);
-
-                    const cmdMatch = Array.isArray(plugin.command)
-                        ? plugin.command.some((c) => c.toLowerCase() === command)
-                        : plugin.command?.toLowerCase() === command;
-
-                    if (!cmdMatch) continue;
-
-                    if (plugin.isOwner && !isOwner) return reply(config.msg?.owner || "Owner only!");
-                    if (plugin.isGroup && !isGroup) return reply(config.msg?.group || "Group only!");
-                    if (plugin.isAdmin && !isAdmin && !isOwner) return reply(config.msg?.admin || "Admin only!");
-                    if (plugin.isBotAdmin && !isBotAdmin) return reply(config.msg?.botAdmin || "Make me admin!");
-
-                    await plugin.execute(sock, m, {
-                        args, text, q, reply, config, chatUpdate, isGroup,
-                        isAdmin, isBotAdmin, isOwner, participants, groupMetadata,
-                        pushName, command, prefix, mime, isMedia, quoted: m.quoted,
-                        sender, sessionId,
-                    });
-                    return;
-                } catch (err) {
-                    console.error(chalk.red(`[PLUGIN ERROR] ${file}:`), err.message);
-                    continue;
-                }
+            try {
+                await plugin.execute(sock, m, {
+                    args, text, q, reply, config, chatUpdate, isGroup,
+                    isAdmin, isBotAdmin, isOwner, participants, groupMetadata,
+                    pushName, command, prefix, mime, isMedia, quoted: m.quoted,
+                    sender, sessionId,
+                });
+            } catch (err) {
+                console.error(chalk.red(`[PLUGIN ERROR] ${file}:`), err.message);
             }
         }
     } catch (err) {
