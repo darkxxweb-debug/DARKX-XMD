@@ -26,6 +26,7 @@ const DEFAULT_OVERRIDES = () => ({
     statusEmojis: [...config.statusEmojis],
     chatEmojis: [...config.chatEmojis],
     antilink: config.antilink,
+    antiStatusMention: false,
     antidelete: config.antiDelete,
     antideleteNotifyOwner: config.antiDeleteNotifyOwner,
     autoViewStatus: config.autoViewStatus,
@@ -37,10 +38,15 @@ const DEFAULT_OVERRIDES = () => ({
     watermark: config.watermark,
     privateMode: config.privateMode,
 
+    // --- Menu image (optional). No image is sent unless one of these is set. ---
+    menuImageUrl: "",   // link to an image (set from the web settings)
+    menuImageFile: "",  // file name of an image uploaded from the web settings
+
     // --- Optional per-user MongoDB (media storage) ---
     // Left empty by default -> shared bot DB is used, which is text-only
-    // and never stores media. Set this to enable saving view-once media,
-    // statuses, and anti-delete media recovery into the user's own DB.
+    // and never stores media. Set this to enable saving view-once media
+    // and statuses into the user's own DB. (Anti-delete media never uses
+    // MongoDB: it is kept on disk for 5 minutes and then deleted.)
     mongoUrl: "",
     autoViewOnce: false,   // auto-forward every view-once media to the owner's DM
     autoSaveStatus: false, // auto-save every contact status update
@@ -91,7 +97,8 @@ function getSettings(number) {
 // NOTE: 'watermark' is intentionally NOT editable — it always stays "DarkX Ultimate".
 const ALLOWED_FIELDS = [
     'ownerNumber', 'ownerName', 'botName', 'prefix', 'statusEmojis', 'chatEmojis',
-    'antilink', 'antidelete', 'antideleteNotifyOwner',
+    'antilink', 'antiStatusMention', 'antidelete', 'antideleteNotifyOwner',
+    'menuImageUrl', 'menuImageFile',
     'autoViewStatus', 'autoReactStatus', 'autoReadChat', 'autoReactChat',
     'autoTyping', 'autoRecording', 'privateMode',
     'mongoUrl', 'autoViewOnce', 'autoSaveStatus',
@@ -112,6 +119,14 @@ function updateSettings(number, partial) {
                 ? raw
                 : String(raw).split(',').map((e) => e.trim()).filter(Boolean);
             if (list.length) next[key] = list;
+        } else if (key === 'menuImageUrl') {
+            const raw = String(partial.menuImageUrl || '').trim();
+            if (raw && !/^https?:\/\/\S+$/i.test(raw)) continue; // ignore invalid links
+            next.menuImageUrl = raw;
+        } else if (key === 'menuImageFile') {
+            const raw = String(partial.menuImageFile || '');
+            if (raw && !/^[a-zA-Z0-9_.-]+$/.test(raw)) continue;
+            next.menuImageFile = raw;
         } else if (key === 'mongoUrl') {
             const raw = String(partial.mongoUrl || '').trim();
             if (raw && !/^mongodb(\+srv)?:\/\//.test(raw)) {
@@ -130,6 +145,43 @@ function updateSettings(number, partial) {
     store[id] = next;
     saveStore(store);
     return next;
+}
+
+// --- Menu image (uploaded from the web settings, stored on disk) ---
+const MENU_DIR = path.join(__dirname, '..', 'data', 'menu');
+const MENU_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+
+function menuImagePath(number) {
+    const id = String(number).replace(/[^0-9]/g, '');
+    const file = getSettings(id).menuImageFile;
+    if (!file) return null;
+    const full = path.join(MENU_DIR, file);
+    return fs.existsSync(full) ? full : null;
+}
+
+/** Saves an uploaded menu image (Buffer) and remembers it in the settings. */
+function saveMenuImage(number, buffer, mimetype) {
+    const id = String(number).replace(/[^0-9]/g, '');
+    const ext = MENU_TYPES[String(mimetype || '').toLowerCase()];
+    if (!ext) throw new Error('Only JPG, PNG or WEBP images are allowed.');
+    if (!buffer || !buffer.length) throw new Error('Empty image.');
+    if (buffer.length > 5 * 1024 * 1024) throw new Error('Image is too large (max 5 MB).');
+
+    fs.mkdirSync(MENU_DIR, { recursive: true });
+    clearMenuImage(id);
+    const file = `${id}_${Date.now()}.${ext}`;
+    fs.writeFileSync(path.join(MENU_DIR, file), buffer);
+    updateSettings(id, { menuImageFile: file });
+    return file;
+}
+
+function clearMenuImage(number) {
+    const id = String(number).replace(/[^0-9]/g, '');
+    const file = getSettings(id).menuImageFile;
+    if (file) {
+        try { fs.unlinkSync(path.join(MENU_DIR, file)); } catch (_) {}
+    }
+    updateSettings(id, { menuImageFile: '' });
 }
 
 // --- Web login: verification codes + session tokens (in-memory) ---
@@ -175,4 +227,7 @@ module.exports = {
     createLoginCode,
     verifyLoginCode,
     resolveToken,
+    menuImagePath,
+    saveMenuImage,
+    clearMenuImage,
 };

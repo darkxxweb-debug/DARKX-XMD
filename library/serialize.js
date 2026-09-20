@@ -28,7 +28,11 @@ const smsg = (sock, m) => {
     }
 
     if (m.message) {
-        m.mtype = Object.keys(m.message)[0];
+        // Skip wrapper keys that WhatsApp adds in front of the real message type
+        const keys = Object.keys(m.message).filter(
+            (k) => !['messageContextInfo', 'senderKeyDistributionMessage'].includes(k)
+        );
+        m.mtype = keys[0] || Object.keys(m.message)[0];
         m.msg = m.message[m.mtype];
 
         m.body =
@@ -44,7 +48,9 @@ const smsg = (sock, m) => {
         const contextInfo = m.msg?.contextInfo;
         if (contextInfo && contextInfo.quotedMessage) {
             const qParticipant = contextInfo.participant;
-            const qMtype = Object.keys(contextInfo.quotedMessage)[0];
+            const qMtype = Object.keys(contextInfo.quotedMessage).filter(
+                (k) => k !== 'messageContextInfo'
+            )[0] || Object.keys(contextInfo.quotedMessage)[0];
             const qMsg = contextInfo.quotedMessage[qMtype];
 
             m.quoted = {
