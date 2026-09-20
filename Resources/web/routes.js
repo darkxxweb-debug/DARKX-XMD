@@ -24,9 +24,18 @@ const {
     createLoginCode,
     verifyLoginCode,
     resolveToken,
+    menuImagePath,
+    saveMenuImage,
+    clearMenuImage,
 } = require('../../library/settingsStore');
 
 const router = express.Router();
+
+/** Settings as sent to the browser: adds a flag telling whether an uploaded menu image exists. */
+function publicSettings(settings) {
+    const { menuImageFile, ...rest } = settings;
+    return { ...rest, menuImageUploaded: !!menuImageFile };
+}
 
 function normalizeNumber(raw) {
     return String(raw || '').replace(/[^0-9]/g, '');
@@ -86,7 +95,7 @@ router.get('/settings', (req, res) => {
     const number = token && resolveToken(token);
     if (!number) return res.status(401).json({ error: 'Please log in again.' });
 
-    res.json({ number, connected: !!activeSockets[number], settings: getSettings(number) });
+    res.json({ number, connected: !!activeSockets[number], settings: publicSettings(getSettings(number)) });
 });
 
 router.post('/settings', (req, res) => {
@@ -94,8 +103,50 @@ router.post('/settings', (req, res) => {
     const number = token && resolveToken(token);
     if (!number) return res.status(401).json({ error: 'Please log in again.' });
 
-    const updated = updateSettings(number, req.body || {});
-    res.json({ ok: true, settings: updated });
+    // The uploaded-image file name is managed only by the upload endpoints below.
+    const body = { ...(req.body || {}) };
+    delete body.menuImageFile;
+
+    const updated = updateSettings(number, body);
+    res.json({ ok: true, settings: publicSettings(updated) });
+});
+
+// ---------- Menu image (set from the web) ----------
+// Upload:  POST /api/settings/menu-image   { dataUrl: "data:image/png;base64,..." }
+// Preview: GET  /api/settings/menu-image?token=...
+// Remove:  DELETE /api/settings/menu-image
+router.post('/settings/menu-image', (req, res) => {
+    const token = getTokenFromRequest(req);
+    const number = token && resolveToken(token);
+    if (!number) return res.status(401).json({ error: 'Please log in again.' });
+
+    try {
+        const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(req.body?.dataUrl || ''));
+        if (!match) return res.status(400).json({ error: 'Please choose a JPG, PNG or WEBP image.' });
+        saveMenuImage(number, Buffer.from(match[2], 'base64'), match[1]);
+        res.json({ ok: true, settings: publicSettings(getSettings(number)) });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+router.get('/settings/menu-image', (req, res) => {
+    const token = getTokenFromRequest(req);
+    const number = token && resolveToken(token);
+    if (!number) return res.status(401).json({ error: 'Please log in again.' });
+
+    const file = menuImagePath(number);
+    if (!file) return res.status(404).json({ error: 'No menu image uploaded.' });
+    res.sendFile(file);
+});
+
+router.delete('/settings/menu-image', (req, res) => {
+    const token = getTokenFromRequest(req);
+    const number = token && resolveToken(token);
+    if (!number) return res.status(401).json({ error: 'Please log in again.' });
+
+    clearMenuImage(number);
+    res.json({ ok: true, settings: publicSettings(getSettings(number)) });
 });
 
 module.exports = router;

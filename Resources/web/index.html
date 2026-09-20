@@ -405,13 +405,29 @@
               <label class="switch"><input type="checkbox" id="s-privateMode" /><span class="slider"></span></label>
             </div>
             <div class="toggle-row">
-              <span>Anti-Link — remove links posted by non-admins</span>
+              <span>Anti-Link — delete links posted by non-admins (no warning; removed after 3 links)</span>
               <label class="switch"><input type="checkbox" id="s-antilink" /><span class="slider"></span></label>
             </div>
             <div class="toggle-row">
-              <span>Anti-Delete — report deleted messages</span>
+              <span>Anti Status-Mention — delete "group mentioned in status" notices at once (removed after 3)</span>
+              <label class="switch"><input type="checkbox" id="s-antiStatusMention" /><span class="slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <span>Anti-Delete — restore deleted messages and media (media kept 5 min, text 6 h)</span>
               <label class="switch"><input type="checkbox" id="s-antidelete" /><span class="slider"></span></label>
             </div>
+            <div class="info-box">The bot must be a group admin for Anti-Link and Anti Status-Mention to work. Group admins can also switch them per group with <b>.antilink on</b> and <b>.antistatusmention on</b>.</div>
+
+            <div class="section-title">Menu Image (optional)</div>
+            <div class="info-box">No image is sent with the menu unless you set one here. Upload a picture, or paste a link to one.</div>
+            <img id="menu-image-preview" alt="Menu image preview" style="display:none;max-width:100%;max-height:180px;border-radius:10px;margin:8px 0;" />
+            <label for="s-menuImageFile">Upload image (JPG, PNG or WEBP, max 5 MB)</label>
+            <input type="file" id="s-menuImageFile" accept="image/jpeg,image/png,image/webp" />
+            <button class="action" id="menu-image-upload-btn" type="button">Upload Menu Image</button>
+            <button class="link-btn" id="menu-image-remove-btn" type="button">Remove uploaded image</button>
+            <label for="s-menuImageUrl">Menu image link (used when no image is uploaded)</label>
+            <input type="text" id="s-menuImageUrl" placeholder="https://example.com/menu.jpg" />
+            <div id="menu-image-status"></div>
 
             <div class="section-title">Automation</div>
             <div class="toggle-row">
@@ -442,7 +458,7 @@
             <div class="section-title">Media Storage (optional)</div>
             <label for="s-mongoUrl">Your own MongoDB URL — leave empty to use the shared bot database (text only, no media stored)</label>
             <input type="text" id="s-mongoUrl" placeholder="mongodb+srv://user:pass@cluster.mongodb.net/mydb" />
-            <div class="info-box">Set this to unlock media saving: view-once, statuses, and anti-delete recovery will be stored in <b>your own</b> database instead. Without it, the bot never stores media anywhere.</div>
+            <div class="info-box">Set this to unlock saving of view-once media and statuses into <b>your own</b> database. Anti-delete does not use MongoDB: its media is kept on the server disk for 5 minutes and then deleted.</div>
             <div class="toggle-row">
               <span>Auto View-Once — forward every view-once media straight to your DM, silently</span>
               <label class="switch"><input type="checkbox" id="s-autoViewOnce" /><span class="slider"></span></label>

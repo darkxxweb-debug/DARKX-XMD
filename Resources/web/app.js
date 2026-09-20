@@ -260,6 +260,9 @@ async function loadSettings() {
   document.getElementById("s-privateMode").checked = !!s.privateMode;
   document.getElementById("s-antilink").checked = !!s.antilink;
   document.getElementById("s-antidelete").checked = !!s.antidelete;
+  document.getElementById("s-antiStatusMention").checked = !!s.antiStatusMention;
+  document.getElementById("s-menuImageUrl").value = s.menuImageUrl || "";
+  refreshMenuImagePreview(!!s.menuImageUploaded);
   document.getElementById("s-autoViewStatus").checked = !!s.autoViewStatus;
   document.getElementById("s-autoReactStatus").checked = !!s.autoReactStatus;
   document.getElementById("s-autoReadChat").checked = !!s.autoReadChat;
@@ -285,6 +288,8 @@ saveSettingsBtn.addEventListener("click", async () => {
     privateMode: document.getElementById("s-privateMode").checked,
     antilink: document.getElementById("s-antilink").checked,
     antidelete: document.getElementById("s-antidelete").checked,
+    antiStatusMention: document.getElementById("s-antiStatusMention").checked,
+    menuImageUrl: document.getElementById("s-menuImageUrl").value.trim(),
     autoViewStatus: document.getElementById("s-autoViewStatus").checked,
     autoReactStatus: document.getElementById("s-autoReactStatus").checked,
     autoReadChat: document.getElementById("s-autoReadChat").checked,
@@ -315,6 +320,72 @@ saveSettingsBtn.addEventListener("click", async () => {
     settingsStatus.textContent = `⚠️ ${err.message}`;
   } finally {
     saveSettingsBtn.disabled = false;
+  }
+});
+
+// ---------- Menu image: upload / remove / preview ----------
+const menuImgPreview = document.getElementById("menu-image-preview");
+const menuImgStatus = document.getElementById("menu-image-status");
+const menuImgFile = document.getElementById("s-menuImageFile");
+const menuImgUploadBtn = document.getElementById("menu-image-upload-btn");
+const menuImgRemoveBtn = document.getElementById("menu-image-remove-btn");
+
+async function refreshMenuImagePreview(uploaded) {
+  if (!uploaded) {
+    menuImgPreview.style.display = "none";
+    menuImgPreview.removeAttribute("src");
+    menuImgRemoveBtn.style.display = "none";
+    return;
+  }
+  try {
+    const res = await fetch("/api/settings/menu-image", { headers: { Authorization: `Bearer ${sessionToken}` } });
+    if (!res.ok) throw new Error();
+    menuImgPreview.src = URL.createObjectURL(await res.blob());
+    menuImgPreview.style.display = "block";
+    menuImgRemoveBtn.style.display = "inline-block";
+  } catch (_) {
+    menuImgPreview.style.display = "none";
+  }
+}
+
+menuImgUploadBtn.addEventListener("click", () => {
+  const file = menuImgFile.files && menuImgFile.files[0];
+  if (!file) { menuImgStatus.textContent = "Please choose an image first."; return; }
+  if (file.size > 5 * 1024 * 1024) { menuImgStatus.textContent = "⚠️ Image is too large (max 5 MB)."; return; }
+
+  menuImgUploadBtn.disabled = true;
+  menuImgStatus.textContent = "Uploading...";
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const res = await fetch("/api/settings/menu-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ dataUrl: reader.result }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed.");
+      menuImgStatus.textContent = "✅ Menu image saved.";
+      menuImgFile.value = "";
+      refreshMenuImagePreview(true);
+    } catch (err) {
+      menuImgStatus.textContent = `⚠️ ${err.message}`;
+    } finally {
+      menuImgUploadBtn.disabled = false;
+    }
+  };
+  reader.onerror = () => { menuImgStatus.textContent = "⚠️ Could not read that file."; menuImgUploadBtn.disabled = false; };
+  reader.readAsDataURL(file);
+});
+
+menuImgRemoveBtn.addEventListener("click", async () => {
+  try {
+    const res = await fetch("/api/settings/menu-image", { method: "DELETE", headers: { Authorization: `Bearer ${sessionToken}` } });
+    if (!res.ok) throw new Error("Could not remove the image.");
+    menuImgStatus.textContent = "🗑 Uploaded image removed.";
+    refreshMenuImagePreview(false);
+  } catch (err) {
+    menuImgStatus.textContent = `⚠️ ${err.message}`;
   }
 });
 
