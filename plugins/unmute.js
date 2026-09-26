@@ -1,3 +1,5 @@
+const { resolveIdentities } = require("../library/groupGuard");
+
 module.exports = {
     command: ["unmute"],
     category: "group",
@@ -9,7 +11,11 @@ module.exports = {
         if (!target) return reply("Tag or reply to the member you want to unmute.");
 
         const group = global.db.groups[m.chat];
-        group.mutedUsers = group.mutedUsers.filter((jid) => jid !== target);
+        if (!Array.isArray(group.mutedUsers)) group.mutedUsers = [];
+
+        const identities = await resolveIdentities(sock, target);
+        group.mutedUsers = group.mutedUsers.filter((jid) => !identities.includes(jid));
+
         reply(`🔊 @${target.split("@")[0]} has been unmuted.`);
     }
 };
