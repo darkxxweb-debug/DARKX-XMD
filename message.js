@@ -18,6 +18,25 @@ const guard = require("./library/groupGuard");
 
 const MEDIA_TYPES = ["imageMessage", "videoMessage", "audioMessage", "documentMessage", "stickerMessage"];
 
+/**
+ * Looks up a deleted message in the anti-delete cache and, if found, sends
+ * the report (+ media if any). Shared by the messages.upsert protocolMessage
+ * check and the messages.update listener (some deletions on newer WhatsApp
+ * clients/groups only ever arrive via messages.update, never as a
+ * protocolMessage inside messages.upsert).
+ */
+async function reportDeletionIfCached(sock, sessionId, config, deleteKey, fallbackChat) {
+    if (!deleteKey?.id) return;
+    const targetChat = deleteKey.remoteJid || fallbackChat;
+    if (!targetChat) return;
+
+    const deleted = antideleteStore.get(sessionId, targetChat, deleteKey.id);
+    if (deleted) {
+        await sendDeletedReport(sock, sessionId, config, targetChat, deleteKey, deleted);
+        antideleteStore.remove(sessionId, targetChat, deleteKey.id);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Plugin index: every plugin file is loaded ONCE and mapped by command name.
 // (Before, all plugin files were re-read from disk on every single command.)
@@ -142,16 +161,10 @@ module.exports = async (sock, m, chatUpdate) => {
             }
         }
 
-        // --- Anti-delete: a "delete for everyone" event arrived ---
+        // --- Anti-delete: a "delete for everyone" event arrived (via messages.upsert) ---
         const proto = m.message?.protocolMessage;
         if (proto && proto.type === 0 && proto.key && config.antidelete) {
-            const deleteKey = proto.key;
-            const targetChat = deleteKey.remoteJid || chat;
-            const deleted = antideleteStore.get(sessionId, targetChat, deleteKey.id);
-            if (deleted) {
-                await sendDeletedReport(sock, sessionId, config, targetChat, deleteKey, deleted);
-                antideleteStore.remove(sessionId, targetChat, deleteKey.id);
-            }
+            await reportDeletionIfCached(sock, sessionId, config, proto.key, chat);
             return;
         }
 
@@ -190,6 +203,18 @@ module.exports = async (sock, m, chatUpdate) => {
             }
         }
 
+        // --- Muted users: delete their messages in this group ---
+        // Runs BEFORE the `if (!body) return` gate below, so media-only
+        // messages (stickers, images with no caption, etc.) from a muted
+        // member get deleted too, not just their text messages.
+        if (isGroup && !fromMe && !isOwner && !isAdmin) {
+            const mutedUsers = global.db?.groups?.[chat]?.mutedUsers;
+            if (await guard.includesIdentity(sock, mutedUsers, sender)) {
+                if (isBotAdmin) await sock.sendMessage(chat, { delete: m.key }).catch(() => {});
+                return;
+            }
+        }
+
         if (fromMe && !isCmd) return;
         if (!body) return;
 
@@ -206,12 +231,6 @@ module.exports = async (sock, m, chatUpdate) => {
         // --- Private Mode: bot only obeys its owner, everyone else is ignored ---
         if (config.privateMode && !isOwner) {
             if (isCmd) return reply(config.msg?.private || "🔒 This bot is in Private Mode.");
-            return;
-        }
-
-        // --- Muted users: delete their messages in this group ---
-        if (isGroup && global.db?.groups?.[chat]?.mutedUsers?.includes(sender) && !isOwner && !isAdmin) {
-            if (isBotAdmin) await sock.sendMessage(chat, { delete: m.key }).catch(() => {});
             return;
         }
 
@@ -265,5 +284,23 @@ module.exports = async (sock, m, chatUpdate) => {
         }
     } catch (err) {
         console.error(chalk.red("CRITICAL ERROR in message.js:"), err);
+    }
+};
+
+/**
+ * Called from index.js's `messages.update` listener — some "delete for
+ * everyone" events (especially in groups, on newer WhatsApp clients) never
+ * appear as a protocolMessage inside messages.upsert; they only show up as
+ * a messages.update event where `update.message` becomes null. This checks
+ * the anti-delete cache the same way the upsert path does.
+ */
+module.exports.checkDeletionUpdate = async (sock, sessionId, key) => {
+    try {
+        const settings = getSettings(sessionId);
+        const config = { ...baseConfig, ...settings };
+        if (!config.antidelete) return;
+        await reportDeletionIfCached(sock, sessionId, config, key, key?.remoteJid);
+    } catch (err) {
+        console.error(chalk.red("Anti-delete (messages.update) error:"), err.message);
     }
 };
