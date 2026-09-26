@@ -1,3 +1,5 @@
+const { resolveIdentities } = require("../library/groupGuard");
+
 module.exports = {
     command: ["mute"],
     category: "group",
@@ -11,7 +13,15 @@ module.exports = {
 
         const group = global.db.groups[m.chat];
         if (!Array.isArray(group.mutedUsers)) group.mutedUsers = [];
-        if (!group.mutedUsers.includes(target)) group.mutedUsers.push(target);
+
+        // Store every JID form WhatsApp knows for this person (phone-based
+        // AND @lid), so the mute still applies later even if their messages
+        // arrive under the other JID type than the one used here.
+        const identities = await resolveIdentities(sock, target);
+        for (const id of identities) {
+            if (!group.mutedUsers.includes(id)) group.mutedUsers.push(id);
+        }
+
         reply(`🔇 @${target.split("@")[0]} has been muted in this group.`);
     }
 };
