@@ -189,6 +189,14 @@ module.exports = async (sock, m, chatUpdate) => {
 
         if (global.db) synchronizeData(m, sock);
 
+        // --- Chat activity counter (per user, per group) — powers the "top chatters" leaderboard shown in the welcome message ---
+        if (isGroup && global.db && sender && !fromMe) {
+            if (typeof global.db.groups[chat] !== "object" || !global.db.groups[chat]) global.db.groups[chat] = {};
+            const group = global.db.groups[chat];
+            if (!group.chatCount || typeof group.chatCount !== "object") group.chatCount = {};
+            group.chatCount[sender] = (group.chatCount[sender] || 0) + 1;
+        }
+
         // --- Private Mode: bot only obeys its owner, everyone else is ignored ---
         if (config.privateMode && !isOwner) {
             if (isCmd) return reply(config.msg?.private || "🔒 This bot is in Private Mode.");
