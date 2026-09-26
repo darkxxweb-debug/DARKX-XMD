@@ -106,8 +106,14 @@ module.exports = async (sock, m, chatUpdate) => {
 
         const isGroup = chat.endsWith("@g.us");
         const botId = sock.user.id.split(":")[0] + "@s.whatsapp.net";
+        // Some groups list the bot under its @lid (Linked ID) identity instead of
+        // its phone-number JID. sock.user.lid (when present) is that identity, so
+        // we need to recognise both forms — otherwise isBotAdmin below can be
+        // wrongly false even when the bot really is a group admin.
+        const botLid = sock.user.lid ? sock.user.lid.split(":")[0] + "@lid" : null;
+        const botIdentities = [botId, botLid].filter(Boolean);
         const ownerJid = String(config.ownerNumber || "").replace(/[^0-9]/g, "") + "@s.whatsapp.net";
-        const isOwner = !!fromMe || [ownerJid, botId].includes(sender);
+        const isOwner = !!fromMe || [ownerJid, ...botIdentities].includes(sender);
 
         const reply = (teks, opts = {}) => sock.sendMessage(chat, { text: teks, ...opts }, { quoted: m });
 
@@ -159,7 +165,7 @@ module.exports = async (sock, m, chatUpdate) => {
                 participants = groupMetadata.participants || [];
                 groupAdmins = participants.filter((v) => !!v.admin).map((v) => v.id);
                 isAdmin = groupAdmins.includes(sender);
-                isBotAdmin = groupAdmins.includes(botId);
+                isBotAdmin = groupAdmins.some((id) => botIdentities.includes(id));
             }
         }
 
