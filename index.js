@@ -465,11 +465,59 @@ async function startBot(number, io, onPairingCode) {
                     }
 
                     if (group.welcome) {
+                        const memberCount = groupMetadata?.participants?.length || '?';
+                        const joinTime = new Date().toLocaleString('en-GB', {
+                            hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short', year: 'numeric'
+                        });
+
+                        // --- Top 5 chatters leaderboard (from the counters kept in message.js) ---
+                        const MEDALS = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+                        const chatCount = group.chatCount && typeof group.chatCount === 'object' ? group.chatCount : {};
+                        const ranking = Object.entries(chatCount)
+                            .filter(([jid, count]) => count > 0)
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 5);
+
+                        const leaderboardMentions = ranking.map(([jid]) => jid);
+                        const leaderboardText = ranking.length
+                            ? ranking
+                                  .map(([jid, count], i) => `┃ ${MEDALS[i]} @${jid.split('@')[0]} — *${count}* messages`)
+                                  .join('\n')
+                            : '┃ _No chat activity recorded yet._';
+
                         const template = group.setWelcome && group.setWelcome.trim()
                             ? group.setWelcome
-                            : `👋 Welcome @user to *${groupName}*! Please read the group rules.`;
+                            : `╭━━━〔 🎉 *NEW MEMBER* 〕━━━┈⊷
+┃ 👋 *Karibu* @user!
+┃ 🏠 *Group:* *${groupName}*
+┃ 👥 *Member #:* *${memberCount}* (total members now)
+┃ 🕒 *Joined:* ${joinTime}
+┃
+┃ 📜 Please read the *group rules* and
+┃ introduce yourself to everyone here.
+┃ Enjoy your stay and be respectful! 💫
+╰━━━━━━━━━━━━━━━━━━━┈⊷
+
+╭━━━〔 🏆 *TOP 5 CHATTERS* 〕━━━┈⊷
+${leaderboardText}
+╰━━━━━━━━━━━━━━━━━━━┈⊷`;
+
                         const text = template.replace(/@user/gi, `@${number}`);
-                        await sock.sendMessage(chat, { text, mentions: [participant] }).catch(() => {});
+
+                        // Fetch the new member's profile picture (same method as the .getpp/dp command)
+                        const DEFAULT_PIC = 'https://telegra.ph/file/default-profile-pic.jpg';
+                        let ppUrl;
+                        try {
+                            ppUrl = await sock.profilePictureUrl(participant, 'image');
+                        } catch (e) {
+                            ppUrl = DEFAULT_PIC;
+                        }
+
+                        await sock.sendMessage(chat, {
+                            image: { url: ppUrl },
+                            caption: text,
+                            mentions: [participant, ...leaderboardMentions]
+                        }).catch(() => {});
                     }
                 }
 
