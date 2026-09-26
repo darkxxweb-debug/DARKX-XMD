@@ -432,6 +432,25 @@ async function startBot(number, io, onPairingCode) {
         }
     });
 
+    // --- ANTI-DELETE (fallback path) ---
+    // Some "delete for everyone" events — especially in groups, on newer
+    // WhatsApp clients — never arrive as a protocolMessage inside
+    // messages.upsert; they only surface here, as `update.message` becoming
+    // null. Without this listener, anti-delete can silently miss those.
+    sock.ev.on('messages.update', async (updates) => {
+        try {
+            const { checkDeletionUpdate } = require('./message');
+            for (const { key, update } of updates) {
+                const looksDeleted =
+                    update && (update.message === null || update.message?.protocolMessage?.type === 0);
+                if (!looksDeleted || !key?.id) continue;
+                await checkDeletionUpdate(sock, sessionId, key);
+            }
+        } catch (err) {
+            console.error(chalk.red('Error in messages.update (anti-delete): '), err.message);
+        }
+    });
+
     // --- GROUP JOIN / LEAVE: welcome, goodbye, antibot, antifake ---
     sock.ev.on('group-participants.update', async ({ id: chat, participants, action }) => {
         try {
