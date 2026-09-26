@@ -2,7 +2,7 @@ module.exports = {
     command: ["mute"],
     category: "group",
     isGroup: true,
-    isAdmin: true,
+    isAdmin: false,
     description: "Mute a member — their messages in this group will be deleted (tag or reply)",
     execute: async (sock, m, { reply, quoted, isBotAdmin }) => {
         const target = m.mentionedJid?.[0] || quoted?.sender;
