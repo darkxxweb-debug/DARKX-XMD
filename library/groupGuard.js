@@ -13,6 +13,46 @@ const MAX_STRIKES = 3;
 const hasLink = (text) => typeof text === "string" && LINK_REGEX.test(text);
 
 /**
+ * WhatsApp can report the same person under two different JID types: their
+ * phone-based JID (...@s.whatsapp.net) or their @lid ("Linked ID", a privacy
+ * feature). Which one shows up for a given person can differ between a
+ * mention/reply and a later plain message. Features that compare JIDs across
+ * time (mute, warn, strikes, etc.) must therefore treat both forms as the
+ * same person, or the comparison can silently never match.
+ *
+ * This resolves `jid` to every form Baileys currently knows about for that
+ * person: itself, plus its PN<->LID counterpart when the running Baileys
+ * version exposes that mapping. Always returns at least [jid].
+ */
+async function resolveIdentities(sock, jid) {
+    const ids = new Set([jid]);
+    if (!jid) return [...ids];
+
+    try {
+        const mapping = sock?.signalRepository?.lidMapping;
+        if (jid.endsWith("@lid") && mapping?.getPNForLID) {
+            const pn = await mapping.getPNForLID(jid);
+            if (pn) ids.add(pn);
+        } else if (jid.endsWith("@s.whatsapp.net") && mapping?.getLIDForPN) {
+            const lid = await mapping.getLIDForPN(jid);
+            if (lid) ids.add(lid);
+        }
+    } catch (_) {
+        // Mapping not available on this Baileys version/session — fall back
+        // to just the JID we were given.
+    }
+
+    return [...ids];
+}
+
+/** True if `list` contains ANY known identity of `jid` (see resolveIdentities). */
+async function includesIdentity(sock, list, jid) {
+    if (!Array.isArray(list) || !list.length) return false;
+    const identities = await resolveIdentities(sock, jid);
+    return identities.some((id) => list.includes(id));
+}
+
+/**
  * True when the raw message is a "group mentioned in a status" notice.
  * WhatsApp delivers it as groupStatusMentionMessage, or as a
  * protocolMessage of type 25 (STATUS_MENTION_MESSAGE).
@@ -70,4 +110,5 @@ function dropGroupMeta(sock, chat) {
 module.exports = {
     MAX_STRIKES, hasLink, isStatusMention, ensureGroup,
     addStrike, clearStrikes, getGroupMeta, dropGroupMeta,
+    resolveIdentities, includesIdentity,
 };
